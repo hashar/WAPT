@@ -29,6 +29,7 @@ var
 
 begin
   result:=Nil;
+  ldap := Nil;
   FVersion := 3;
   ldap := TLDAPSend.Create;
   ldap.TargetHost := Fserver;
@@ -37,6 +38,7 @@ begin
   ldap.Password := FPassword;
   ldap.Version := FVersion;
   ldap.FullSSL := True;
+  try
     //The following code borrowed from Lou Feliz
     if ldap.Login then
     try
@@ -47,6 +49,11 @@ begin
     end
     else
       raise Exception.CreateFmt('Unable to login to LDAP directory server %s:%s with user %s',[FServer,Fport,Fusername+'@'+Fdomain]);
+
+  except
+    FreeAndNil(ldap);
+    raise;
+  end;
 end;
 
 function LdapSearch(ldap:TLDAPSend;base:String='dc=domain,dc=local';search:String='(objectClass=*)';attribs:String='*';SearchScope:TLDAPSearchScope=SS_WholeSubtree):ISuperObject;

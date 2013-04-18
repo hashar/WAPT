@@ -807,6 +807,10 @@ def get_task(name):
     task = ts.Activate(name)
     return task
 
+def run_task(name):
+    """Launch immediately the task"""
+    get_task(name).Run()
+
 def task_exists(name):
     """Return true if a sheduled task names 'name.job' is defined"""
     ts = pythoncom.CoCreateInstance(taskscheduler.CLSID_CTaskScheduler,None,
@@ -825,20 +829,26 @@ def delete_task(name):
 
 def disable_task(name):
     """Disable a task"""
+    return run('schtasks /Change /TN "%s" /DISABLE' % name)
+    """
     task = get_task(name)
     task.SetFlags(task.GetFlags() | taskscheduler.TASK_FLAG_DISABLED)
     pf = task.QueryInterface(pythoncom.IID_IPersistFile)
     pf.Save(None,1)
     return task
-
+    """
 
 def enable_task(name):
     """Enable a task"""
+    return run('schtasks /Change /TN "%s" /ENABLE' % name)
+
+    """
     task = get_task(name)
     task.SetFlags(task.GetFlags() & ~taskscheduler.TASK_FLAG_DISABLED)
     pf = task.QueryInterface(pythoncom.IID_IPersistFile)
     pf.Save(None,1)
     return task
+    """
 
 def create_daily_task(name,cmd,parameters, max_runtime=10, repeat_minutes=None, start_hour=None, start_minute=None):
     """creates a daily task

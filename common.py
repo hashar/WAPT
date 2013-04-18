@@ -1271,6 +1271,10 @@ class Wapt(object):
         if not os.path.exists(self.packagecachedir):
             os.makedirs(self.packagecachedir)
         self.dry_run = False
+
+        # to allow/restrict installation, supplied to packages
+        self.usergroups = None
+
         # database init
         if config.has_option('global','dbdir'):
             self.dbdir =  config.get('global','dbdir')
@@ -1656,6 +1660,8 @@ class Wapt(object):
             setattr(setup,'run',setuphelpers.run)
             setattr(setup,'run_notfatal',setuphelpers.run_notfatal)
             setattr(setup,'WAPT',self)
+
+            setattr(setup,'usergroups',self.usergroups)
 
             # get definitions of required parameters from setup module
             if hasattr(setup,'required_params'):
@@ -2204,6 +2210,7 @@ class Wapt(object):
                 logger.info('Launch session_setup')
                 setattr(setup,'run',setuphelpers.run)
                 setattr(setup,'run_notfatal',setuphelpers.run_notfatal)
+                setattr(setup,'usergroups',self.usergroups)
                 setattr(setup,'WAPT',self)
 
                 # get definitions of required parameters from setup module
@@ -2258,6 +2265,7 @@ class Wapt(object):
                 logger.info('Launch uninstall')
                 setattr(setup,'run',setuphelpers.run)
                 setattr(setup,'run_notfatal',setuphelpers.run_notfatal)
+                setattr(setup,'usergroups',self.usergroups)
                 setattr(setup,'WAPT',self)
 
                 # get value of required parameters if not already supplied
@@ -2507,12 +2515,35 @@ def install():
             result.append('%s : %s' % ('wapt-upgrade',task.GetTriggerString(0)))
         return '\n'.join(result)
 
+    def enable_tasks(self):
+        """Enable Wapt automatic update/upgrade scheduling"""
+        result = []
+        if setuphelpers.task_exists('wapt-upgrade'):
+            setuphelpers.enable_task('wapt-upgrade')
+            result.append('wapt-upgrade')
+        if setuphelpers.task_exists('wapt-update'):
+            setuphelpers.enable_task('wapt-update')
+            result.append('wapt-update')
+        return result
+
+    def disable_tasks(self):
+        """Disable Wapt automatic update/upgrade scheduling"""
+        result = []
+        if setuphelpers.task_exists('wapt-upgrade'):
+            setuphelpers.disable_task('wapt-upgrade')
+            result.append('wapt-upgrade')
+        if setuphelpers.task_exists('wapt-update'):
+            setuphelpers.disable_task('wapt-update')
+            result.append('wapt-update')
+        return result
+
+
+###
+
 REGEX_MODULE_VERSION = re.compile(
                     r'^(?P<major>[0-9]+)'
                      '\.(?P<minor>[0-9]+)'
                      '(\.(?P<patch>[0-9]+))')
-
-
 class Version():
     """Version object of form 0.0.0
         can compare with respect to natural numbering and not alphabetical

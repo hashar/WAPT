@@ -29,6 +29,19 @@ after_upload="c:\Program Files"\putty\plink -v -l root srvwapt "python /var/www/
 # define a wapt_server only if one is running
 #wapt_server=http://wapt.tranquil.it/waptserver
 
+# for windows task scheduling
+waptupgrade_task_period=360
+waptupgrade_task_maxruntime=360
+
+waptupdate_task_period=30
+waptupdate_task_maxruntime=10
+
+#ldap_server=srvads
+#ldap_basedb=dc=tranquilit,dc=local
+#ldap_port=636
+
+
+
 [private]
 repo_url=http://wapt/wapt
 public_cert=c:\wapt\ssl\tranquilit.crt

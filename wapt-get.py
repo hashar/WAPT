@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.8.11"
+__version__ = "0.8.12"
 
 import sys
 import os
@@ -66,6 +66,8 @@ action is either :
   cleanup           : remove all WAPT cached files from local drive
 
   setup-tasks       : creates Windows daily scheduled tasks for update/download-upgrade/upgrade
+  enable-tasks
+  disable-tasks
 
  For user session setup
   session-setup [packages,all] : setup local user environment for specific or all installed packages
@@ -97,6 +99,7 @@ parser.add_option("-e","--encoding",    dest="encoding",    default=None, help="
 parser.add_option("-x","--excludes",    dest="excludes",    default='.svn,.git*,*.pyc,*.dbg,src', help="Comma separated list of files or directories to exclude for build-package (default: %default)")
 parser.add_option("-k","--private-key", dest="private_key",    default='', help="Path to the PEM RSA private key to sign packages. Package are unsigned if not provided (default: %default)")
 parser.add_option("-w","--private-key-passwd", dest="private_key_passwd", default='', help="Path to the password of the private key. (default: %default)")
+parser.add_option("-g","--usergroups", dest="usergroups", default='[]', help="Groups of the final user as a JSon array for checking install permission (default: %default)")
 
 (options,args)=parser.parse_args()
 
@@ -160,8 +163,9 @@ def main():
         }
 
     cp = RawConfigParser(defaults = defaults)
-    cp.add_section('global')
     cp.read(config_file)
+    if not cp.has_section('global'):
+        cp.add_section('global')
 
     global loglevel
     if not loglevel and cp.has_option('global','loglevel'):
@@ -176,6 +180,10 @@ def main():
         mywapt.private_key = options.private_key
     else:
         mywapt.private_key = cp.get('global','private_key')
+
+    if options.usergroups:
+        mywapt.usergroups = json.loads(options.usergroups.replace("'",'"'))
+        logger.info('User Groups:%s' % (mywapt.usergroups,))
 
     mywapt.dry_run = options.dry_run
     #logger.info("Main wapt Repository %s" % mywapt.wapt_repourl)
@@ -467,6 +475,12 @@ def main():
 
         elif action=='setup-tasks':
             print mywapt.setup_tasks()
+
+        elif action=='enable-tasks':
+            print mywapt.enable_tasks()
+
+        elif action=='disable-tasks':
+            print mywapt.disable_tasks()
 
         elif action=='list':
             def cb(fieldname,value):

@@ -45,6 +45,8 @@ import socket
 import dns.resolver
 from waptpackage import *
 
+import locale
+
 import shlex
 from iniparse import RawConfigParser
 from collections import namedtuple
@@ -54,10 +56,12 @@ import shutil
 import win32api
 from _winreg import HKEY_LOCAL_MACHINE,EnumKey,OpenKey,QueryValueEx,EnableReflectionKey,DisableReflectionKey,QueryReflectionKey,QueryInfoKey,KEY_READ,KEY_WOW64_32KEY,KEY_WOW64_64KEY
 
+import struct
+
 import re
 import setuphelpers
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 logger = logging.getLogger()
 
@@ -244,7 +248,7 @@ def html_table(cur,callback=None):
         if iso is None:
             return None
         elif isinstance(iso, str):
-            return iso.decode('iso8859')
+            return iso.decode(locale.getpreferredencoding())
         else:
             return iso
 
@@ -306,6 +310,188 @@ def ssl_verify_content(content,signature,public_cert):
     if not pubkey.verify_final(signature):
         raise Exception('SSL signature verification failed, either public certificate does not match signature or signed content has been changed')
 
+_FHF_HAS_DATA_DESCRIPTOR = 0x8
+dataDescriptorSignature = 0x08074b50
+
+class ZipFile2(zipfile.ZipFile):
+    """ Class with methods to open, read, write, remove, close, list zip files.
+        patch to add remove() coming from http://bugs.python.org/file21188/zipfile.remove.2.patch
+    """
+    def _get_data_descriptor_size(self, zinfo):
+       if self.mode not in ("r", "a"):
+           raise RuntimeError('to read the data descriptor requires mode "r" or "a"')
+
+       if not zinfo.flag_bits & _FHF_HAS_DATA_DESCRIPTOR:
+           return 0
+
+       original_fp = self.fp.tell()
+       data_descriptor_fp = zinfo.header_offset + len(zinfo.FileHeader()) + zinfo.compress_size
+       self.fp.seek(data_descriptor_fp)
+
+       sig_or_not_bin = self.fp.read(4)
+       sig_or_not = struct.unpack('<L', sig_or_not_bin)
+       self.fp.seek(original_fp)
+
+       # The data descriptor can either have the signature or not, yet
+       # the standards don't specify the signature as an illegal CRC.
+       if sig_or_not == dataDescriptorSignature:
+           return 16
+       else:
+           return 12
+
+    def remove(self, member):
+       """Remove a file from the archive. Only works if the ZipFile was opened
+       with mode 'a'."""
+
+       if "a" not in self.mode:
+           raise RuntimeError('remove() requires mode "a"')
+       if not self.fp:
+           raise RuntimeError(
+                 "Attempt to modify ZIP archive that was already closed")
+
+       # Make sure we have an info object
+       if isinstance(member, zipfile.ZipInfo):
+           # 'member' is already an info object
+           zinfo = member
+       else:
+           # Get info object for member
+           zinfo = self.getinfo(member)
+
+       # To remove the member we need its size and location in the archive
+       fname = zinfo.filename
+       fileofs = zinfo.header_offset
+       zlen = len(zinfo.FileHeader()) + zinfo.compress_size + self._get_data_descriptor_size(zinfo)
+
+       # Modify all the relevant file pointers
+       for info in self.infolist():
+           if info.header_offset > fileofs:
+               info.header_offset = info.header_offset - zlen
+
+       # Remove the zipped data
+       self.fp.seek(fileofs + zlen)
+       data_after = self.fp.read()
+       self.fp.seek(fileofs)
+       self.fp.write(data_after)
+       new_start_dir = self.start_dir - zlen
+       self.fp.seek(new_start_dir)
+       self.fp.truncate()
+
+       # Fix class members with state
+       self.start_dir = new_start_dir
+       self._didModify = True
+       self.filelist.remove(zinfo)
+       del self.NameToInfo[fname]
+
+    def _central_dir_header(self, zinfo):
+        dt = zinfo.date_time
+        dosdate = (dt[0] - 1980) << 9 | dt[1] << 5 | dt[2]
+        dostime = dt[3] << 11 | dt[4] << 5 | (dt[5] // 2)
+        extra = []
+        if zinfo.file_size > zipfile.ZIP64_LIMIT \
+                or zinfo.compress_size > zipfile.ZIP64_LIMIT:
+            extra.append(zinfo.file_size)
+            extra.append(zinfo.compress_size)
+            file_size = 0xffffffff
+            compress_size = 0xffffffff
+        else:
+            file_size = zinfo.file_size
+            compress_size = zinfo.compress_size
+
+        if zinfo.header_offset > zipfile.ZIP64_LIMIT:
+            extra.append(zinfo.header_offset)
+            header_offset = 0xffffffff
+        else:
+            header_offset = zinfo.header_offset
+
+        extra_data = zinfo.extra
+        if extra:
+            # Append a ZIP64 field to the extra's
+            extra_data = struct.pack(
+                    '<HH' + 'Q'*len(extra),
+                    1, 8*len(extra), *extra) + extra_data
+
+            extract_version = max(45, zinfo.extract_version)
+            create_version = max(45, zinfo.create_version)
+        else:
+            extract_version = zinfo.extract_version
+            create_version = zinfo.create_version
+
+        try:
+            filename, flag_bits = zinfo._encodeFilenameFlags()
+            centdir = struct.pack(zipfile.structCentralDir,
+                zipfile.stringCentralDir, create_version,
+                zinfo.create_system, extract_version, zinfo.reserved,
+                flag_bits, zinfo.compress_type, dostime, dosdate,
+                zinfo.CRC, compress_size, file_size,
+                len(filename), len(extra_data), len(zinfo.comment),
+                0, zinfo.internal_attr, zinfo.external_attr,header_offset)
+        except DeprecationWarning:
+            print((zipfile.structCentralDir, zipfile.stringCentralDir, create_version, \
+                zinfo.create_system, extract_version, zinfo.reserved, \
+                zinfo.flag_bits, zinfo.compress_type, dostime, dosdate, \
+                zinfo.CRC, compress_size, file_size, \
+                len(zinfo.filename), len(extra_data), \
+                len(zinfo.comment),0, zinfo.internal_attr, \
+                zinfo.external_attr,header_offset))
+            raise
+
+        return centdir + filename + extra_data + zinfo.comment
+
+    def close(self):
+        """Close the file, and for mode "w" and "a" write the ending
+        records."""
+        if self.fp is None:
+            return
+
+        if self.mode in ("w", "a") and self._didModify: # write ending records
+            count = 0
+            pos1 = self.fp.tell()
+            for zinfo in self.filelist:         # write central directory
+                count = count + 1
+                self.fp.write(self._central_dir_header(zinfo))
+
+            pos2 = self.fp.tell()
+            # Write end-of-zip-archive record
+            centDirCount = count
+            centDirSize = pos2 - pos1
+            centDirOffset = pos1
+            if (centDirCount >= zipfile.ZIP_FILECOUNT_LIMIT or
+                centDirOffset > zipfile.ZIP64_LIMIT or
+                centDirSize > zipfile.ZIP64_LIMIT):
+                # Need to write the ZIP64 end-of-archive records
+                zip64endrec = struct.pack(
+                        zipfile.structEndArchive64, zipfile.stringEndArchive64,
+                        44, 45, 45, 0, 0, centDirCount, centDirCount,
+                        centDirSize, centDirOffset)
+                self.fp.write(zip64endrec)
+
+                zip64locrec = struct.pack(
+                        zipfile.structEndArchive64Locator,
+                        zipfile.stringEndArchive64Locator, 0, pos2, 1)
+                self.fp.write(zip64locrec)
+                centDirCount = min(centDirCount, 0xFFFF)
+                centDirSize = min(centDirSize, 0xFFFFFFFF)
+                centDirOffset = min(centDirOffset, 0xFFFFFFFF)
+
+            # check for valid comment length
+            if len(self.comment) >= zipfile.ZIP_MAX_COMMENT:
+                if self.debug > 0:
+                    msg = 'Archive comment is too long; truncating to %d bytes' \
+                          % zipfile.ZIP_MAX_COMMENT
+                self.comment = self.comment[:zipfile.ZIP_MAX_COMMENT]
+
+            endrec = struct.pack(zipfile.structEndArchive, zipfile.stringEndArchive,
+                                 0, 0, centDirCount, centDirCount,
+                                 centDirSize, centDirOffset, len(self.comment))
+            self.fp.write(endrec)
+            self.fp.write(self.comment)
+            self.fp.flush()
+
+        if not self._filePassed:
+            self.fp.close()
+        self.fp = None
+
+
 def create_recursive_zip_signed(zipfn, source_root, target_root = u"",excludes = [u'.svn',u'.git*',u'*.pyc',u'*.dbg',u'src']):
     """Create a zip file with filename zipf from source_root directory with target_root as new root.
        Don't include file which match excludes file pattern
@@ -320,11 +506,11 @@ def create_recursive_zip_signed(zipfn, source_root, target_root = u"",excludes =
 
     if isinstance(zipfn,str) or isinstance(zipfn,unicode):
         if logger: logger.debug('Create zip file %s' % zipfn)
-        zipf = zipfile.ZipFile(zipfn,'w')
-    elif isinstance(zipfn,zipfile.ZipFile):
+        zipf = ZipFile2(zipfn,'w')
+    elif isinstance(zipfn,ZipFile2):
         zipf = zipfn
     else:
-        raise Exception('zipfn must be either a filename (string) or an zipfile.ZipFile')
+        raise Exception('zipfn must be either a filename (string) or an ZipFile2')
     for item in os.listdir(source_root):
         excluded = False
         for x in excludes:
@@ -437,7 +623,7 @@ class LogInstallOutput(object):
                 txt = txt.decode('utf8')
             except:
                 try:
-                    txt = txt.decode('iso8859')
+                    txt = txt.decode(locale.getpreferredencoding())
                 except:
                     pass
             self.output.append(txt)
@@ -586,9 +772,32 @@ db_upgrades = {
             'Sources':'sources',
             }],
         },
- ('20130327','20130408'):{
-        },
- ('20130408','20130410'):{
+ ('0000','20130423'):{
+        'wapt_localstatus':['wapt_localstatus',{
+            'Package':'package',
+            'Version':'version',
+            'Architecture':'architecture',
+            'InstallDate':'install_date',
+            'InstallStatus':'install_status',
+            'InstallOutput':'install_output',
+            'InstallParams':'install_params',
+            'UninstallString':'uninstall_string',
+            'UninstallKey':'uninstall_key',
+            }],
+        'wapt_repo':['wapt_package',{
+            'Package':'package',
+            'Version':'version',
+            'Architecture':'architecture',
+            'Section':'section',
+            'Priority':'priority',
+            'Maintainer':'maintainer',
+            'Description':'description',
+            'Filename':'filename',
+            'Size':'size',
+            'MD5sum':'md5sum',
+            'Depends':'depends',
+            'Sources':'sources',
+            }],
         },
     }
 
@@ -597,7 +806,7 @@ class WaptDB(object):
     dbpath = ''
     db = None
 
-    curr_db_version = '20130410'
+    curr_db_version = '20130423'
 
     def __init__(self,dbpath):
         self._db_version = None
@@ -626,18 +835,14 @@ class WaptDB(object):
             self.db.close()
             logger.critical('DB error %s, rollbacking\n' % (value,))
 
-    def upgradedb(self):
+    def upgradedb(self,force=False):
         """Update local database structure to current version if rules are described in db_upgrades"""
         try:
             backupfn = ''
             # use cached value to avoid infinite loop
             old_structure_version = self._db_version
-            if old_structure_version >= self.curr_db_version:
+            if old_structure_version >= self.curr_db_version and not force:
                 logger.critical('upgrade db aborted : current structure version %s is newer or equal to requested structure version %s' % (old_structure_version,self.curr_db_version))
-                return (old_structure_version,old_structure_version)
-
-            if not (old_structure_version,self.curr_db_version) in db_upgrades:
-                logger.critical('no rules to upgrade from version %s to version %s, keeping old database' % (old_structure_version,self.curr_db_version))
                 return (old_structure_version,old_structure_version)
 
             logger.info('Upgrade database schema')
@@ -668,7 +873,10 @@ class WaptDB(object):
                 if old_datas[tablename]:
                     logger.debug(' process table %s' % tablename)
                     # get rules from db_upgrades dict
-                    (newtablename,newfieldnames) = db_upgrades[(old_structure_version,new_structure_version)].get(tablename,[tablename,{}])
+                    if new_structure_version>old_structure_version:
+                        (newtablename,newfieldnames) = db_upgrades[(old_structure_version,new_structure_version)].get(tablename,[tablename,{}])
+                    else:
+                        (newtablename,newfieldnames) = (tablename,{})
 
                     allnewcolumns = [ c[0] for c in self.db.execute('select * from %s limit 0' % newtablename).description]
                     # take only old columns which match a new column in new structure
@@ -713,7 +921,8 @@ class WaptDB(object):
           md5sum varchar(255),
           depends varchar(800),
           sources varchar(255),
-          repo_url varchar(255)
+          repo_url varchar(255),
+          repo varchar(255)
           )"""
                         )
         self.db.execute("""
@@ -724,6 +933,8 @@ class WaptDB(object):
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           package varchar(255),
           version varchar(255),
+          version_pinning varchar(255),
+          explicit_by varchar(255),
           architecture varchar(255),
           install_date varchar(255),
           install_status varchar(255),
@@ -881,7 +1092,8 @@ class WaptDB(object):
                     md5sum='',
                     depends='',
                     sources='',
-                    repo_url=''):
+                    repo_url='',
+                    repo='',):
 
         cur = self.db.execute("""\
               insert into wapt_package (
@@ -897,7 +1109,8 @@ class WaptDB(object):
                 md5sum,
                 depends,
                 sources,
-                repo_url) values (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                repo_url,
+                repo) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,(
                  package,
                  version,
@@ -911,7 +1124,8 @@ class WaptDB(object):
                  md5sum,
                  depends,
                  sources,
-                 repo_url)
+                 repo_url,
+                 repo)
                )
 
         return cur.lastrowid
@@ -931,7 +1145,8 @@ class WaptDB(object):
                          package_entry.md5sum,
                          package_entry.depends,
                          package_entry.sources,
-                         package_entry.repo_url)
+                         package_entry.repo_url,
+                         package_entry.repo)
 
 
     def add_start_install(self,package,version,architecture,params_dict={}):
@@ -1102,25 +1317,25 @@ class WaptDB(object):
                 result[p.package] = available
         return result
 
-    def update_repos_list(self,url_list,proxies=None,force=False):
-        """update the packages database with Packages files from the url in url_list"""
+    def update_repos_list(self,repos_list,proxies=None,force=False):
+        """update the packages database with Packages files from the url repos_list"""
         try:
             logger.info('Purge packages table')
-            self.db.execute('delete from wapt_package where repo_url not in (%s)' % (','.join('"%s"'% url for url in url_list,)))
+            self.db.execute('delete from wapt_package where repo_url not in (%s)' % (','.join('"%s"'% r.repo_url for r in repos_list,)))
             self.db.commit()
-            for url in url_list:
-                logger.info('Getting packages from %s' % url)
+            for repo in repos_list:
+                logger.info('Getting packages from %s' % repo.repo_url)
                 try:
-                    self.update_packages_list(url,proxies=proxies,force=force)
+                    self.update_packages_list(repo.repo_url,repo.name,proxies=proxies,force=force)
                 except Exception,e:
-                    logger.critical('Error getting packages from %s : %s' % (url,e))
+                    logger.critical('Error getting packages from %s : %s' % (repo.repo_url,e))
             logger.debug('Commit wapt_package updates')
         except:
             logger.debug('rollback delete table')
             self.db.rollback()
             raise
 
-    def update_packages_list(self,repourl,proxies=None,force=False):
+    def update_packages_list(self,repourl,repo_name=None,proxies=None,force=False):
         """Get Packages from http repo and update local package database
             return last-update header"""
         try:
@@ -1141,7 +1356,7 @@ class WaptDB(object):
             packages_answer.raise_for_status
 
             # Packages file is a zipfile with one Packages file inside
-            packageListFile = codecs.decode(zipfile.ZipFile(
+            packageListFile = codecs.decode(ZipFile2(
                   StringIO.StringIO(packages_answer.content)
                 ).read(name='Packages'),'UTF-8').splitlines()
 
@@ -1156,6 +1371,7 @@ class WaptDB(object):
                     logger.info("%s (%s)" % (package.package,package.version))
                     logger.debug(package)
                     package.repo_url = repourl
+                    package.repo = repo_name
                     self.add_package_entry(package)
 
             for line in packageListFile:
@@ -1365,7 +1581,9 @@ class Wapt(object):
         else:
             self.wapt_server = None
 
+        # Stores the configuration of all repositories (url, public_cert...)
         self.repositories = []
+        # secondary
         if config.has_option('global','repositories'):
             names = [n.strip() for n in config.get('global','repositories').split(',')]
             logger.info('Other repositories : %s' % (names,))
@@ -1374,6 +1592,11 @@ class Wapt(object):
                     w = WaptRepo(name).from_inifile(config)
                     self.repositories.append(w)
                     logger.debug('    %s:%s' % (w.name,w.repo_url))
+        # last is main repository so it overrides the secondary repositories
+        w = WaptRepo('global').from_inifile(config)
+        # override with calculated url
+        w.repo_url = self.wapt_repourl
+        self.repositories.append(w)
 
     @property
     def waptdb(self):
@@ -1641,7 +1864,7 @@ class Wapt(object):
             if os.path.isfile(fname):
                 packagetempdir = tempfile.mkdtemp(prefix="wapt")
                 logger.info('  unzipping %s to temporary %s' % (fname,packagetempdir))
-                zip = zipfile.ZipFile(fname)
+                zip = ZipFile2(fname)
                 zip.extractall(path=packagetempdir)
                 istemporary = True
             elif os.path.isdir(fname):
@@ -1765,7 +1988,7 @@ class Wapt(object):
             if install_id:
                 try:
                     try:
-                        uerror = repr(e).decode('iso8859')
+                        uerror = repr(e).decode(locale.getpreferredencoding())
                     except:
                         try:
                             uerror = repr(e).decode('utf8')
@@ -1843,16 +2066,15 @@ class Wapt(object):
         previous = self.waptdb.known_packages()
         if not self.wapt_repourl:
             raise Exception('No main WAPT repository available or setup')
-        # put main repo at the end so that it will used in priority
-        repos = [r.repo_url for r in self.repositories] + [self.wapt_repourl]
-        self.waptdb.update_repos_list(repos,proxies=self.proxies,force=force)
+        # (main repo is at the end so that it will used in priority)
+        self.waptdb.update_repos_list(self.repositories,proxies=self.proxies,force=force)
 
         current = self.waptdb.known_packages()
         result = {
             "added":   [ p for p in current if not p in previous ],
             "removed": [ p for p in previous if not p in current],
             "count" : len(current),
-            "repos" : repos,
+            "repos" : [r.repo_url for r in self.repositories],
             }
         return result
 
@@ -1985,7 +2207,7 @@ class Wapt(object):
             if isinstance(p,str):
                 mp = self.waptdb.packages_matching(p)
                 if mp:
-                    packages.append(mp[0])
+                    packages.append(mp[-1])
                 else:
                     raise Exception('Unavailable package %s' % (p,))
             elif isinstance(p,PackageEntry):
@@ -2143,7 +2365,7 @@ class Wapt(object):
         if not os.path.isfile(private_key):
             raise Exception('Private key file %s not found' % private_key)
         if os.path.isfile(zip_or_directoryname):
-            waptzip = zipfile.ZipFile(zip_or_directoryname,'a')
+            waptzip = ZipFile2(zip_or_directoryname,'a')
             manifest = waptzip.open('WAPT/manifest.sha1').read()
         else:
             manifest_data = get_manifest_data(zip_or_directoryname,excludes=excludes)
@@ -2159,7 +2381,9 @@ class Wapt(object):
         return signature.encode('base64')
 
     def buildpackage(self,directoryname,inc_package_release=False,excludes=['.svn','.git*','*.pyc','src']):
-        """Build the WAPT package from a directory, return the filename of the WAPT file"""
+        """Build the WAPT package from a directory
+            return a dict {'filename':waptfilename,'files':[list of files]}
+        """
         if not isinstance(directoryname,unicode):
             directoryname = unicode(directoryname)
         result_filename = u''
@@ -2522,11 +2746,11 @@ def install():
         return self.waptdb.packages_matching(packagename)
 
 
-    def duplicate_package(self,packagename,newname=None,target_directory='',
-        unzip=False,
-        excludes=['.svn','.git*','*.pyc','src'],
-        private_key=None,
-        callback=pwd_callback):
+    def duplicate_package(self,packagename,newname=None,newversion='',target_directory='',
+            build=True,
+            excludes=['.svn','.git*','*.pyc','src'],
+            private_key=None,
+            callback=pwd_callback):
         """Duplicate an existing package from repositories into targetdirectory with newname.
             Return the package filename or the directory name of the new package
             unzip: unzip packages at end for modifications, don't sign, return directory name
@@ -2537,6 +2761,7 @@ def install():
             target_directory = self.config.get('global','default_sources_root','')
             if not target_directory:
                 target_directory = os.getcwd()
+
         if target_directory:
              target_directory = os.path.abspath(target_directory)
 
@@ -2558,6 +2783,8 @@ def install():
 
         # change package name
         dest_control.package = newname
+        if newversion:
+            dest_control.version = newversion
 
         # Check existing versions and increment it
         older_packages = self.is_available(newname)
@@ -2566,13 +2793,26 @@ def install():
             dest_control.inc_build()
 
         dest_control.filename = dest_control.make_package_filename()
-        target_filename = os.path.join(target_directory,dest_control.filename)
 
-        logger.debug('Copy package file from %s to %s' % (source_filename,target_filename))
-        shutil.copyfile(source_filename,target_filename)
-        dest_control.save_control_to_wapt(target_filename)
+        package_dev_dir = os.path.join(target_directory,newname)+'-%s' % self.config.get('global','default_sources_suffix','wapt')
+        logger.info('  unzipping %s to directory %s' % (source_filename,package_dev_dir))
+        zip = ZipFile2(source_filename)
+        zip.extractall(path=package_dev_dir)
+        dest_control.save_control_to_wapt(package_dev_dir)
 
-        if not unzip:
+        # remove manifest and signature
+        manifest_filename = os.path.join( package_dev_dir,'WAPT','manifest.sha1')
+        if os.path.isfile(manifest_filename):
+            os.unlink(manifest_filename)
+
+        # remove signature of manifest
+        signature_filename = os.path.join( package_dev_dir,'WAPT','signature')
+        if os.path.isfile(signature_filename):
+            os.unlink(signature_filename)
+
+        # build package
+        if build:
+            target_filename = self.buildpackage(package_dev_dir,inc_package_release=False,excludes=excludes)['filename']
             #get default private_key if not provided
             if not private_key:
                 private_key = self.private_key
@@ -2583,19 +2823,6 @@ def install():
                 logger.warning('No private key provided, packahe is not signed !')
             return target_filename
         else:
-            package_dev_dir = os.path.join(target_directory,newname)+'-%s' % self.config.get('global','default_sources_suffix','wapt')
-            logger.info('  unzipping %s to directory %s' % (target_filename,package_dev_dir))
-            zip = zipfile.ZipFile(target_filename)
-            zip.extractall(path=package_dev_dir)
-
-            # remove manifest and signature
-            manifest_filename = os.path.join( package_dev_dir,'WAPT','manifest.sha1')
-            if os.path.isfile(manifest_filename):
-                os.unlink(manifest_filename)
-            # remove signature of manifest
-            signature_filename = os.path.join( package_dev_dir,'WAPT','signature')
-            if os.path.isfile(signature_filename):
-                os.unlink(signature_filename)
             return package_dev_dir
 
     def setup_tasks(self):

@@ -28,6 +28,7 @@ import logging
 import glob
 import codecs
 import re
+import time
 
 logger = logging.getLogger()
 
@@ -85,7 +86,7 @@ class PackageEntry(object):
     """Package attributes coming from either control files in WAPT package or local DB"""
     required_attributes = ['package','version','architecture',]
     optional_attributes = ['section','priority','maintainer','description','depends','sources',]
-    non_control_attributes = ['filename','size','repo_url','md5sum',]
+    non_control_attributes = ['filename','size','repo_url','md5sum','repo',]
 
     @property
     def all_attributes(self):
@@ -105,6 +106,7 @@ class PackageEntry(object):
         self.size=''
         self.md5sum=''
         self.repo_url=''
+        self.repo=''
         self.calculated_attributes=[]
 
     def parse_version(self):
@@ -264,7 +266,7 @@ class PackageEntry(object):
         return self
 
     def save_control_to_wapt(self,fname):
-        """Load package attributes from the control file (utf8 encoded) included in WAPT zipfile fname
+        """Save package attributes to the control file (utf8 encoded)
           fname can be
            - the path to WAPT file itelsef (zip file)
            - a path to the directory of wapt file unzipped content (debugging)
@@ -274,6 +276,13 @@ class PackageEntry(object):
         else:
             if os.path.isfile(fname):
                 myzip = zipfile.ZipFile(fname,'a')
+                try:
+                    zi = myzip.getinfo('WAPT/control')
+                    control_exist = True
+                except:
+                    control_exist = False
+                if control_exist:
+                    raise Exception('control file already exist in WAPT file %s' % fname)
             else:
                 myzip = zipfile.ZipFile(fname,'w')
             try:
@@ -384,9 +393,15 @@ def update_packages(adir):
     logger.info("Writing new %s" % packages_fname)
     myzipfile = zipfile.ZipFile(packages_fname, "w")
     try:
+        zi = zipfile.ZipInfo("Packages",date_time = time.localtime())
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        myzipfile.writestr(zi,'\n'.join(packages))
+
         myzipfile.writestr("Packages",'\n'.join(packages),compress_type=zipfile.ZIP_DEFLATED)
     except:
-        myzipfile.writestr("Packages",'\n'.join(packages))
+        zi = zipfile.ZipInfo("Packages",date_time = time.localtime())
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        myzipfile.writestr(zi,'\n'.join(packages))
     myzipfile.close()
     logger.info("Finished")
 
@@ -419,6 +434,11 @@ if __name__ == '__main__':
     import tempfile
     wfn = tempfile.mktemp(suffix='.wapt')
     w.save_control_to_wapt(wfn)
+    try:
+        w.save_control_to_wapt(wfn)
+        raise Exception('Should fail')
+    except:
+        pass
     update_packages(os.path.dirname(wfn))
     w.load_control_from_wapt(wfn)
     print w.ascontrol(with_non_control_attributes=True)

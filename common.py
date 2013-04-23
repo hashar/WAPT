@@ -873,7 +873,7 @@ class WaptDB(object):
                 if old_datas[tablename]:
                     logger.debug(' process table %s' % tablename)
                     # get rules from db_upgrades dict
-                    if new_structure_version>old_structure_version:
+                    if new_structure_version>old_structure_version and (old_structure_version,new_structure_version) in db_upgrades:
                         (newtablename,newfieldnames) = db_upgrades[(old_structure_version,new_structure_version)].get(tablename,[tablename,{}])
                     else:
                         (newtablename,newfieldnames) = (tablename,{})

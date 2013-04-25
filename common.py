@@ -53,6 +53,8 @@ import locale
 
 import shlex
 from iniparse import RawConfigParser
+from optparse import OptionParser
+
 from collections import namedtuple
 from types import ModuleType
 
@@ -1524,6 +1526,7 @@ class Wapt(object):
         self.dry_run = False
 
         # to allow/restrict installation, supplied to packages
+        self.user = winsys.accounts.me().name
         self.usergroups = None
 
         # database init
@@ -1588,6 +1591,13 @@ class Wapt(object):
             self.wapt_server = config.get('global','wapt_server')
         else:
             self.wapt_server = None
+
+        if config.has_option('global','language'):
+            self.language = config.get('global','language')
+        else:
+            self.language = None
+
+        self.options = OptionParser()
 
         # Stores the configuration of all repositories (url, public_cert...)
         self.repositories = []
@@ -1826,7 +1836,8 @@ class Wapt(object):
 
     def install_wapt(self,fname,params_dict={},public_cert=''):
         """Install a single wapt package given its WAPT filename."""
-        logger.info("Register start of install %s as user sys %s to local DB with params %s" % (fname, winsys.accounts.me().name, params_dict))
+        logger.info("Register start of install %s as user %s to local DB with params %s" % (fname, winsys.accounts.me().name, params_dict))
+        logger.info("Interactive user:%s, usergroups %s" % (self.user,self.usergroups))
         status = 'INIT'
         if not public_cert:
             public_cert = self.get_public_cert()
@@ -1918,7 +1929,9 @@ class Wapt(object):
             setattr(setup,'run_notfatal',setuphelpers.run_notfatal)
             setattr(setup,'WAPT',self)
             setattr(setup,'control',entry)
+            setattr(setup,'language',self.language or setuphelpers.language() )
 
+            setattr(setup,'user',self.user)
             setattr(setup,'usergroups',self.usergroups)
 
             # get definitions of required parameters from setup module
@@ -2473,8 +2486,10 @@ class Wapt(object):
                 logger.info('Launch session_setup')
                 setattr(setup,'run',setuphelpers.run)
                 setattr(setup,'run_notfatal',setuphelpers.run_notfatal)
+                setattr(setup,'user',self.user)
                 setattr(setup,'usergroups',self.usergroups)
                 setattr(setup,'WAPT',self)
+                setattr(setup,'language',self.language or setuphelpers.language() )
 
                 # get definitions of required parameters from setup module
                 if hasattr(setup,'required_params'):
@@ -2531,8 +2546,10 @@ class Wapt(object):
                 logger.info('Launch uninstall')
                 setattr(setup,'run',setuphelpers.run)
                 setattr(setup,'run_notfatal',setuphelpers.run_notfatal)
+                setattr(setup,'user',self.user)
                 setattr(setup,'usergroups',self.usergroups)
                 setattr(setup,'WAPT',self)
+                setattr(setup,'language',self.language or setuphelpers.language() )
 
                 # get value of required parameters if not already supplied
                 for p in required_params:

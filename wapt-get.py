@@ -35,6 +35,8 @@ from waptpackage import PackageEntry
 from waptpackage import update_packages
 from common import ppdicttable
 import setuphelpers
+import locale
+
 #from setuphelpers import *
 import json
 import glob
@@ -98,7 +100,9 @@ parser.add_option("-e","--encoding",    dest="encoding",    default=None, help="
 parser.add_option("-x","--excludes",    dest="excludes",    default='.svn,.git*,*.pyc,*.dbg,src', help="Comma separated list of files or directories to exclude for build-package (default: %default)")
 parser.add_option("-k","--private-key", dest="private_key",    default='', help="Path to the PEM RSA private key to sign packages. Package are unsigned if not provided (default: %default)")
 parser.add_option("-w","--private-key-passwd", dest="private_key_passwd", default='', help="Path to the password of the private key. (default: %default)")
+parser.add_option("-U","--user", dest="user", default=None, help="Interactive user (default: no change)")
 parser.add_option("-g","--usergroups", dest="usergroups", default='[]', help="Groups of the final user as a JSon array for checking install permission (default: %default)")
+parser.add_option("-L","--language",    dest="language",    default=None, help="Override language for install (example : fr) (default: no change)")
 
 (options,args)=parser.parse_args()
 
@@ -125,12 +129,14 @@ if loglevel:
 else:
     setloglevel('warning')
 
-if options.encoding:
-    logger.debug('Default encoding : %s ' % sys.getdefaultencoding())
-    logger.debug('Setting encoding for stdout and stderr to %s ' % options.encoding)
-    sys.stdout = codecs.getwriter(options.encoding)(sys.stdout)
-    sys.stderr = codecs.getwriter(options.encoding)(sys.stderr)
+encoding = options.encoding
+if not encoding:
+    encoding = locale.getpreferredencoding() or sys.stdout.encoding or 'cp850'
 
+logger.debug('Default encoding : %s ' % sys.getdefaultencoding())
+logger.debug('Setting encoding for stdout and stderr to %s ' % encoding)
+sys.stdout = codecs.getwriter(encoding)(sys.stdout)
+sys.stderr = codecs.getwriter(encoding)(sys.stderr)
 
 def main():
     if len(args) == 0:
@@ -172,6 +178,9 @@ def main():
         setloglevel(loglevel)
 
     mywapt = Wapt(config=cp)
+
+    mywapt.options = options
+
     if options.wapt_url:
         mywapt.wapt_repourl = options.wapt_url
 
@@ -180,9 +189,16 @@ def main():
     else:
         mywapt.private_key = cp.get('global','private_key')
 
+    if options.language:
+        mywapt.language = options.language
+
     if options.usergroups:
         mywapt.usergroups = json.loads(options.usergroups.replace("'",'"'))
         logger.info('User Groups:%s' % (mywapt.usergroups,))
+
+    if options.user:
+        mywapt.user = options.user
+        logger.info('Interactive user :%s' % (mywapt.user,))
 
     mywapt.dry_run = options.dry_run
     #logger.info("Main wapt Repository %s" % mywapt.wapt_repourl)

@@ -31,6 +31,8 @@ Source: "..\wapt-get.exe.manifest"; DestDir: "{app}";
 Source: "..\wapt-get.exe"; DestDir: "{app}";
 Source: "..\wapttray.exe"; DestDir: "{app}"; BeforeInstall: killtask('wapttray.exe'); Tasks: installTray
 Source: "..\vc_redist\*"; DestDir: "{tmp}\vc_redist";
+Source: "..\lib\site-packages\M2Crypto\libeay32.dll" ; DestDir: "{app}"; 
+Source: "..\lib\site-packages\M2Crypto\ssleay32.dll" ; DestDir: "{app}";
 
 
 [Setup]

@@ -1,6 +1,9 @@
 
 #define AppName "WAPT"
-#define AppVersion GetFileVersion(AddBackslash(SourcePath) + "..\wapt-get.exe")
+#define SrcApp AddBackslash(SourcePath) + "..\wapt-get.exe"
+#define FileVerStr GetFileVersion(SrcApp)
+#define StripBuild(str VerStr) Copy(VerStr, 1, RPos(".", VerStr)-1)
+#define AppVerStr StripBuild(FileVerStr)
 
 [Files]
 Source: "..\DLLs\*"; DestDir: "{app}\DLLs"; Flags: createallsubdirs recursesubdirs
@@ -32,17 +35,21 @@ Source: "..\vc_redist\*"; DestDir: "{tmp}\vc_redist";
 
 [Setup]
 AppName={#AppName}
-AppVersion={#AppVersion}
+AppVersion={#AppVerStr}
+AppVerName={#AppName} {#AppVerStr}
+UninstallDisplayName={#AppName} {#AppVerStr}
+VersionInfoVersion={#FileVerStr}
+VersionInfoTextVersion={#AppVerStr}
+AppCopyright=Tranquil IT Systems
 DefaultDirName="C:\{#AppName}"
 DefaultGroupName={#AppName}
 ChangesEnvironment=True
 AppPublisher=Tranquil IT Systems
-UninstallDisplayName=WAPT libraries and WAPTService
 OutputDir="."
 OutputBaseFilename=waptsetup
 SolidCompression=True
 AppPublisherURL=http://www.tranquil.it
-AppUpdatesURL=http://wapt.tranquil.it
+AppUpdatesURL=http://wapt.tranquil.it/wapt/waptsetup.exe
 AppContact=dev@tranquil.it
 AppSupportPhone=+33 2 40 97 57 55
 SignTool=kSign /d $qWAPT Client$q /du $qhttp://www.tranquil-it-systems.fr$q $f

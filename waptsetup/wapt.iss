@@ -71,16 +71,17 @@ Filename: {app}\wapt-get.ini; Section: global; Key: public_cert; String: {code:G
 [Run]
 Filename: "msiexec.exe"; Parameters: "/q /i ""{tmp}\vc_redist\vc_red.msi"""; WorkingDir: "{tmp}"; StatusMsg: "Updating MS VC++ libraries for OpenSSL..."; Description: "Update MS VC++ libraries"
 Filename: "{app}\wapt-get.exe"; Parameters: "upgradedb"; Flags: runhidden; StatusMsg: "Upgrading local sqlite database structure"; Description: "Upgrade packages list"
-Filename: "{app}\wapt-get.exe"; Parameters: "update"; Tasks: updateWapt; Flags: runhidden; StatusMsg: "Updating packages list"; Description: "Update packages list"
+Filename: "{app}\wapt-get.exe"; Parameters: "update"; Tasks: updateWapt; Flags: runhidden; StatusMsg: "Updating packages list"; Description: "Update packages list from main repository"
 Filename: "{app}\wapttray.exe"; Tasks: installTray; Flags: runminimized nowait runasoriginaluser postinstall; StatusMsg: "Launch WAPT tray icon"; Description: "Launch WAPT tray icon"
 
 [Icons]
-Name: "{commonstartup}\WAPT tray helper"; Tasks: installTray; Filename: "{app}\wapttray.exe";
+Name: "{commonstartup}\WAPT tray helper"; Tasks: autorunTray; Filename: "{app}\wapttray.exe";
 
 [Tasks]
 Name: updateWapt; Description: "Update package list after setup";
 Name: installService; Description: "Install WAPT Service";
 Name: installTray; Description: "Install WAPT Tray icon";
+Name: autorunTray; Description: "Start WAPT Tray icon at logon";
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/t /im ""wapttray.exe"" /f"; Flags: runhidden; StatusMsg: "Stopping wapt tray"

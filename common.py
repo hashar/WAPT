@@ -67,7 +67,7 @@ import struct
 import re
 import setuphelpers
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 logger = logging.getLogger()
 
@@ -1526,7 +1526,7 @@ class Wapt(object):
         self.dry_run = False
 
         # to allow/restrict installation, supplied to packages
-        self.user = winsys.accounts.me().name
+        self.user = win32api.GetUserName()
         self.usergroups = None
 
         # database init

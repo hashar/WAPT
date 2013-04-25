@@ -398,13 +398,14 @@ var
     Cmd,IPS:String;
     i,f:integer;
     param,value,lst,UpgradeResult,SetupResult:String;
-    so,groups : ISuperObject;
+    so,auth_groups : ISuperObject;
     AQuery : TSQLQuery;
     filepath,template : Utf8String;
     CmdOutput,CmdError:AnsiString;
     htmloutput:Utf8String;
     ldap : TLdapSend;
     auth_ok : Boolean;
+    auth_user:String;
 begin
   //Default type
   AResponseInfo.ContentType:='text/html';
@@ -503,7 +504,7 @@ begin
     if (ARequestInfo.URI='/install') or (ARequestInfo.URI='/remove') or (ARequestInfo.URI='/showlog')  or (ARequestInfo.URI='/show') then
     begin
       auth_ok := False;
-      groups := Nil;
+      auth_groups := Nil;
 
       // Check MD5 auth
       if not auth_ok then
@@ -517,11 +518,13 @@ begin
           // check if in Domain Admins group
           auth_ok := True;
           try
-            groups := ldapauth.GetUserAndGroups(ldap,ldap_basedn,ARequestInfo.AuthUsername,False)['user.memberOf'];
+            auth_groups := ldapauth.GetUserAndGroups(ldap,ldap_basedn,ARequestInfo.AuthUsername,False)['user.memberOf'];
           except
-            groups :='';
+            LogMessage('error getting ldap ads groups');
+            auth_groups := Nil;
           end;
         except
+          LogMessage('error ldapssllogin');
           auth_ok :=False;
         end;
       end;
@@ -535,7 +538,9 @@ begin
         AResponseInfo.ContentText := '<html>Authentication required for Installation operations</html>';
         AResponseInfo.CustomHeaders.Values['WWW-Authenticate'] := 'Basic realm="WAPT-GET Authentication"';
         Exit;
-      end;
+      end
+      else
+        auth_user := ARequestInfo.AuthUsername;
 
       if ARequestInfo.Params.Count<=0 then
       begin
@@ -556,8 +561,11 @@ begin
       if (f>=0) then
         cmd := cmd+' -p "'+ChangeQuotes(ARequestInfo.Params.ValueFromIndex[f])+'"';
 
-      if groups<>Nil then
-        cmd := cmd+' -g "'+ChangeQuotes(groups.AsJSon(False))+'"';
+      if auth_groups<>Nil then
+        cmd := cmd+' -g "'+ChangeQuotes(auth_groups.AsJSon(False))+'"';
+
+      if auth_user<>'' then
+        cmd := cmd+' -U "'+auth_user+'"';
 
       i:= ARequestInfo.Params.IndexOfName('package');
       if ARequestInfo.URI = '/install' then

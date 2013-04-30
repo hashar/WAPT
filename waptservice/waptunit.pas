@@ -401,7 +401,7 @@ var
     so,auth_groups : ISuperObject;
     AQuery : TSQLQuery;
     filepath,template : Utf8String;
-    CmdOutput,CmdError:AnsiString;
+    CmdOutput:AnsiString;
     htmloutput:Utf8String;
     ldap : TLdapSend;
     auth_ok : Boolean;
@@ -474,7 +474,7 @@ begin
       Timer1.Enabled:=True;
       cmd := WaptgetPath+' -lcritical enable-tasks';
       Application.Log(etInfo,cmd);
-      Sto_RedirectedExecute(cmd,CmdOutput,CmdError);
+      CmdOutput := Sto_RedirectedExecute(cmd);
       CmdOutput := StrUtils.StringsReplace(CmdOutput,[#13#10],['<br>'],[rfReplaceAll]);
       AResponseInfo.ContentText:= '<h2>Output</h2>'+CmdOutput;
     end
@@ -490,7 +490,7 @@ begin
       Timer1.Enabled:=False;
       cmd := WaptgetPath+' -lcritical disable-tasks';
       Application.Log(etInfo,cmd);
-      Sto_RedirectedExecute(cmd,CmdOutput,CmdError);
+      CmdOutput := Sto_RedirectedExecute(cmd);
       CmdOutput := StrUtils.StringsReplace(CmdOutput,[#13#10],['<br>'],[rfReplaceAll]);
       AResponseInfo.ContentText:= '<h2>Output</h2>'+CmdOutput;
     end
@@ -588,7 +588,7 @@ begin
         cmd := cmd+' show '+ARequestInfo.Params.ValueFromIndex[i];
       Application.Log(etInfo,cmd);
       //HttpRunTask(AContext,AResponseInfo,cmd,ExitStatus)
-      Sto_RedirectedExecute(cmd,CmdOutput,CmdError);
+      CmdOutput := Sto_RedirectedExecute(cmd);
       CmdOutput := cmd+'<br>'+StrUtils.StringsReplace(CmdOutput,[#13#10],['<br>'],[rfReplaceAll]);
       //CmdError:=AnsiToUtf8(StrUtils.StringsReplace(CmdError,[#13#10],['<br>'],[rfReplaceAll]));
       AResponseInfo.ContentText:= '<h2>Output</h2>'+CmdOutput;

@@ -121,7 +121,7 @@ class PackageEntry(object):
         if hasattr(self,name):
             return getattr(self,name)
         else:
-            raise Exception('No such attribute : %s' % name)
+            raise Exception(u'No such attribute : %s' % name)
 
     def __setitem__(self,name,value):
         name = name.lower()
@@ -198,7 +198,7 @@ class PackageEntry(object):
             prefix = prefix[0]
             match_version = match_expr[1:]
         else:
-            raise ValueError("match_expr parameter should be in format <op><ver>, "
+            raise ValueError(u"match_expr parameter should be in format <op><ver>, "
                              "where <op> is one of ['<', '>', '==', '<=', '>=']. "
                              "You provided: %r" % match_expr)
 
@@ -231,12 +231,12 @@ class PackageEntry(object):
         if type(fname) is list:
             control =  StringIO.StringIO(u'\n'.join(fname))
         elif os.path.isfile(fname):
-            myzip = zipfile.ZipFile(fname,'r')
-            control = StringIO.StringIO(myzip.open('WAPT/control').read().decode('utf8'))
+            myzip = zipfile.ZipFile(fname,'r',allowZip64=True)
+            control = StringIO.StringIO(myzip.open(u'WAPT/control').read().decode('utf8'))
         elif os.path.isdir(fname):
             control = codecs.open(os.path.join(fname,'WAPT','control'),'r',encoding='utf8')
         else:
-            raise Exception('No control found for %s' % (fname,))
+            raise Exception(u'No control found for %s' % (fname,))
 
         (param,value) = ('','')
         while 1:
@@ -273,23 +273,20 @@ class PackageEntry(object):
            - a path to the directory of wapt file unzipped content (debugging)
         """
         if os.path.isdir(fname):
-            codecs.open(os.path.join(fname,'WAPT','control'),'w',encoding='utf8').write(self.ascontrol())
+            codecs.open(os.path.join(fname,u'WAPT','control'),'w',encoding='utf8').write(self.ascontrol())
         else:
             if os.path.isfile(fname):
                 myzip = zipfile.ZipFile(fname,'a')
                 try:
-                    zi = myzip.getinfo('WAPT/control')
+                    zi = myzip.getinfo(u'WAPT/control')
                     control_exist = True
                 except:
                     control_exist = False
                 if control_exist:
                     raise Exception(u'control file already exist in WAPT file %s' % fname)
             else:
-                myzip = zipfile.ZipFile(fname,'w')
-            try:
-                myzip.writestr('WAPT/control',self.ascontrol().encode('utf8'),compress_type=zipfile.ZIP_STORED)
-            except:
-                myzip.writestr('WAPT/control',self.ascontrol().encode('utf8'))
+                myzip = zipfile.ZipFile(fname,'w',allowZip64=True,compression=zipfile.ZIP_DEFLATED)
+            myzip.writestr(u'WAPT/control',self.ascontrol().encode('utf8'))
 
     def ascontrol(self,with_non_control_attributes = False):
         val = u"""\
@@ -311,7 +308,7 @@ sources      : %(sources)s
     def make_package_filename(self):
         """Return the standard package filename based on current attributes"""
         if not (self.package and self.version and self.architecture):
-            raise Exception('Not enough information to build the package filename')
+            raise Exception(u'Not enough information to build the package filename')
         return self.package + '_' + self.version + '_' +  self.architecture  + '.wapt'
 
     def asrequirement(self):
@@ -327,7 +324,7 @@ sources      : %(sources)s
         return self.ascontrol(with_non_control_attributes=True)
 
     def __repr__(self):
-        return "%s (%s):%s" % (self.package,self.version,self.architecture)
+        return u'"%s (=%s)"' % (self.package,self.version)
         #return self.ascontrol(with_non_control_attributes=True).encode('utf8')
 
     def inc_build(self):
@@ -388,30 +385,24 @@ def update_packages(adir):
     waptlist = glob.glob(os.path.join(adir,'*.wapt'))
     packages = []
     for fname in waptlist:
-        if os.path.basename(fname) in old_entries:
-            logger.info(u"  Keeping %s" % fname)
-            entry = old_entries[os.path.basename(fname)]
-        else:
-            logger.info(u"  Processing %s" % fname)
-            entry = PackageEntry()
-            entry.load_control_from_wapt(fname)
-        packages.append(entry.ascontrol(with_non_control_attributes=True).encode('utf8'))
+        try:
+            if os.path.basename(fname) in old_entries:
+                logger.info(u"  Keeping %s" % fname)
+                entry = old_entries[os.path.basename(fname)]
+            else:
+                logger.info(u"  Processing %s" % fname)
+                entry = PackageEntry()
+                entry.load_control_from_wapt(fname)
+            packages.append(entry.ascontrol(with_non_control_attributes=True))
+        except Exception,e:
+            logger.critical("package %s: %s" % (fname,e))
 
     logger.info(u"Writing new %s" % packages_fname)
-    myzipfile = zipfile.ZipFile(packages_fname, "w")
-    try:
-        zi = zipfile.ZipInfo(u"Packages",date_time = time.localtime())
-        zi.compress_type = zipfile.ZIP_DEFLATED
-        myzipfile.writestr(zi,u'\n'.join(packages))
-
-        myzipfile.writestr(u"Packages",u'\n'.join(packages),compress_type=zipfile.ZIP_DEFLATED)
-    except:
-        zi = zipfile.ZipInfo(u"Packages",date_time = time.localtime())
-        zi.compress_type = zipfile.ZIP_DEFLATED
-        myzipfile.writestr(zi,u'\n'.join(packages))
+    myzipfile = zipfile.ZipFile(packages_fname, "w",compression=zipfile.ZIP_DEFLATED)
+    zi = zipfile.ZipInfo(u"Packages",date_time = time.localtime())
+    myzipfile.writestr(zi,u'\n'.join(packages).encode('utf8'))
     myzipfile.close()
     logger.info(u"Finished")
-
 
 if __name__ == '__main__':
     w = PackageEntry()

@@ -67,6 +67,8 @@ import struct
 import re
 import setuphelpers
 
+import types
+
 __version__ = "0.1.4"
 
 logger = logging.getLogger()
@@ -323,6 +325,10 @@ class ZipFile2(zipfile.ZipFile):
     """ Class with methods to open, read, write, remove, close, list zip files.
         patch to add remove() coming from http://bugs.python.org/file21188/zipfile.remove.2.patch
     """
+    def __init__(self,*args,**kwargs):
+        zipfile.ZipFile.__init__(self,*args,**kwargs)
+        self._allowZip64 = True
+
     def _get_data_descriptor_size(self, zinfo):
        if self.mode not in ("r", "a"):
            raise RuntimeError('to read the data descriptor requires mode "r" or "a"')
@@ -808,7 +814,7 @@ db_upgrades = {
     }
 
 def is_system_user():
-    return winsys.accounts.me().name == winsys.accounts.principal(winsys.accounts.WELL_KNOWN_SID['LocalSystem']).name
+    return win32api.GetUserName().lower() == 'system'
 
 class WaptDB(object):
     """Class to manage SQLite database with local installation status"""
@@ -1142,20 +1148,20 @@ class WaptDB(object):
     def add_package_entry(self,package_entry):
         cur = self.db.execute("""delete from wapt_package where package=? and version=?""" ,(package_entry.package,package_entry.version))
 
-        self.add_package(package_entry.package,
-                         package_entry.version,
-                         package_entry.section,
-                         package_entry.priority,
-                         package_entry.architecture,
-                         package_entry.maintainer,
-                         package_entry.description,
-                         package_entry.filename,
-                         package_entry.size,
-                         package_entry.md5sum,
-                         package_entry.depends,
-                         package_entry.sources,
-                         package_entry.repo_url,
-                         package_entry.repo)
+        self.add_package(package=package_entry.package,
+                         version=package_entry.version,
+                         section=package_entry.section,
+                         priority=package_entry.priority,
+                         architecture=package_entry.architecture,
+                         maintainer=package_entry.maintainer,
+                         description=package_entry.description,
+                         filename=package_entry.filename,
+                         size=package_entry.size,
+                         md5sum=package_entry.md5sum,
+                         depends=package_entry.depends,
+                         sources=package_entry.sources,
+                         repo_url=package_entry.repo_url,
+                         repo=package_entry.repo)
 
 
     def add_start_install(self,package,version,architecture,params_dict={}):
@@ -1272,8 +1278,10 @@ class WaptDB(object):
     def installed(self):
         """Return a dictionary of installed packages : keys=package, values = PackageEntry """
         q = self.query_package_entry("""\
-              select l.install_date,l.install_status,l.install_output,l.install_params,
-                r.* from wapt_localstatus l
+              select l.package,l.version,l.architecture,l.install_date,l.install_status,l.install_output,l.install_params,
+                r.section,r.priority,r.maintainer,r.description,r.depends,r.sources,r.filename,r.size,
+                r.repo_url,r.md5sum,r.repo
+                from wapt_localstatus l
                 left join wapt_package r on r.package=l.package and l.version=r.version and (l.architecture is null or l.architecture=r.architecture)
               where l.install_status in ("OK","UNKNOWN")
            """)
@@ -1291,10 +1299,12 @@ class WaptDB(object):
             search = ['1=1']
         else:
             words = [ "%"+w.lower()+"%" for w in searchwords ]
-            search = ["lower(r.description || r.package) like ?"] *  len(words)
+            search = ["lower(l.package || (case when r.description is NULL then '' else r.description end) ) like ?"] *  len(words)
         q = self.query_package_entry("""\
-              select l.install_date,l.install_status,l.install_output,l.install_params,
-                r.* from wapt_localstatus l
+              select l.package,l.version,l.architecture,l.install_date,l.install_status,l.install_output,l.install_params,
+                r.section,r.priority,r.maintainer,r.description,r.depends,r.sources,r.filename,r.size,
+                r.repo_url,r.md5sum,r.repo
+                 from wapt_localstatus l
                 left join wapt_package r on r.package=l.package and l.version=r.version and (l.architecture is null or l.architecture=r.architecture)
               where l.install_status in ("OK","UNKNOWN") and %s
            """ % " and ".join(search),words)
@@ -1307,8 +1317,10 @@ class WaptDB(object):
         """Return True if one installed package match te package condition 'tis-package (>=version)' """
         package = REGEX_PACKAGE_CONDITION.match(package_cond).groupdict()['package']
         q = self.query_package_entry("""\
-              select l.install_date,l.install_status,l.install_output,l.install_params,l.setuppy,
-                r.* from wapt_localstatus l
+              select l.package,l.version,l.architecture,l.install_date,l.install_status,l.install_output,l.install_params,l.setuppy,
+                r.section,r.priority,r.maintainer,r.description,r.depends,r.sources,r.filename,r.size,
+                r.repo_url,r.md5sum,r.repo
+                from wapt_localstatus l
                 left join wapt_package r on r.package=l.package and l.version=r.version and (l.architecture is null or l.architecture=r.architecture)
               where l.package=? and l.install_status in ("OK","UNKNOWN")
            """,(package,))
@@ -1836,7 +1848,7 @@ class Wapt(object):
 
     def install_wapt(self,fname,params_dict={},public_cert=''):
         """Install a single wapt package given its WAPT filename."""
-        logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, winsys.accounts.me().name, params_dict))
+        logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, win32api.GetUserName(), params_dict))
         logger.info(u"Interactive user:%s, usergroups %s" % (self.user,self.usergroups))
         status = 'INIT'
         if not public_cert:
@@ -2103,14 +2115,20 @@ class Wapt(object):
             }
         return result
 
-    def checkinstall(self,apackages,forceupgrade=False,force=False):
-        """Given a list of packagename (condition), check which packages to upgrade, to install
+    def checkinstall(self,apackages,forceupgrade=False,force=False,assume_removed=[]):
+        """Given a list of packagename or requirement "name (=version)",
+                return a dictionnary of {'additional' 'upgrade' 'install' 'skipped' 'unavailable'} of PackageEntry
             forceupgrade : check if the current installed package is the latest available
+            force : install the latest version even if the package is already there and match the requirement
+            assume_removed: list of packagename which are assumed to be absent even if they are installed to check the
+                            consequences of removal of packages
         """
         if not isinstance(apackages,list):
             apackages = [apackages]
 
-        allinstalled = self.waptdb.installed()
+        if not isinstance(assume_removed,list):
+            assume_removed = [assume_removed]
+
         # packages to install after skipping already installed ones
         skipped = []
         unavailable = []
@@ -2122,6 +2140,14 @@ class Wapt(object):
         for request in apackages:
             # get the current installed package matching the request
             old_matches = self.waptdb.installed_matching(request)
+
+            # removes "assumed removed" packages
+            if old_matches:
+                for packagename in assume_removed:
+                    if old_matches.match(packagename):
+                        old_matches = None
+                        break
+
             # current installed matches
             if not force and old_matches and not forceupgrade:
                 skipped.append([request,old_matches])
@@ -2144,6 +2170,14 @@ class Wapt(object):
         for request in depends:
             # get the current installed package matching the request
             old_matches = self.waptdb.installed_matching(request)
+
+            # removes "assumed removed" packages
+            if old_matches:
+                for packagename in assume_removed:
+                    if old_matches.match(packagename):
+                        old_matches = None
+                        break
+
             # current installed matches
             if not force and old_matches:
                 skipped.append([request,old_matches])
@@ -2157,7 +2191,17 @@ class Wapt(object):
                         skipped.append([request,old_matches])
                 else:
                     unavailable.append([request,None])
+        result =  {'additional':additional_install,'upgrade':to_upgrade,'install':packages,'skipped':skipped,'unavailable':unavailable}
         return {'additional':additional_install,'upgrade':to_upgrade,'install':packages,'skipped':skipped,'unavailable':unavailable}
+
+    def checkremove(packages):
+        """return a list of additional package to remove if packages are removed"""
+        if not isinstance(apackages,list):
+            apackages = [apackages]
+
+        for packagename in apackages:
+            pass
+
 
     def install(self,apackages,
         force=False,
@@ -2430,23 +2474,53 @@ class Wapt(object):
             setup = import_setup(os.path.join(directoryname,'setup.py'),'_waptsetup_')
              # be sure some minimal functions are available in setup module at install step
             logger.debug(u'Source import OK')
+
+            # check minimal requirements of setup.py
+            # check encoding
+            try:
+                codecs.open(os.path.join(directoryname,'setup.py'),mode='r',encoding='utf8')
+            except:
+                raise Exception('Encoding of setup.py is not utf8')
+
+            mandatory = [('install',types.FunctionType) ,('uninstallkey',types.ListType),('uninstallstring',types.ListType)]
+            for (attname,atttype) in mandatory:
+                if not hasattr(setup,attname):
+                    raise Exception('setup.py has no %s (%s)' % (attname,atttype))
+
             control_filename = os.path.join(directoryname,'WAPT','control')
             entry = PackageEntry()
-            if hasattr(setup,'control'):
-                logger.info('Use control informations from setup.py file')
-                entry.load_control_from_dict(setup.control)
-                # update control file
-                codecs.open(control_filename,'w',encoding='utf8').write(entry.ascontrol())
-            else:
-                logger.info('Use control informations from control file')
-                entry.load_control_from_wapt(directoryname)
+            logger.info('Load control informations from control file')
+            entry.load_control_from_wapt(directoryname)
+
+            # optionally, setup.py can update some attributes of control files using
+            # a procedure called update_control(package_entry)
+            # this can help automates version maintenance
+            # a check of version collision is operated automatically
+            if hasattr(setup,'update_control'):
+                logger.info('Update control informations with update_control function from setup.py file')
+                setup.update_control(entry)
+
+                logger.debug('Check existing versions and increment it')
+                older_packages = self.is_available(entry.package)
+                if older_packages and entry<=older_packages[-1]:
+                    entry.version = older_packages[-1].version
+                    entry.inc_build()
+                    logger.warning('Older package with same name exists, incrementing packaging version to %s' % (entry.version,))
+
+                # save control file
+                entry.save_control_to_wapt(directoryname)
+
             if inc_package_release:
+                entry.inc_build()
+                """
                 current_release = entry.version.split('-')[-1]
                 new_release = "%02i" % (int(current_release) + 1,)
                 new_version = "-".join(entry.version.split('-')[0:-1]+[new_release])
                 logger.info('Increasing version of package from %s to %s' % (entry.version,new_version))
                 entry.version = new_version
+                """
                 entry.save_control_to_wapt(directoryname)
+
             package_filename =  entry.make_package_filename()
             logger.debug(u'Control data : \n%s' % entry.ascontrol())
             result_filename = os.path.abspath(os.path.join( directoryname,'..',package_filename))
@@ -2536,7 +2610,7 @@ class Wapt(object):
         try:
             previous_cwd = os.getcwd()
             if os.path.isdir(packagename):
-                setup = import_setup(os.path.join(directoryname,'setup.py'),'__waptsetup__')
+                setup = import_setup(os.path.join(packagename,'setup.py'),'__waptsetup__')
             else:
                 logger.debug(u'Sourcing setup from DB')
                 setup = import_code(self.is_installed(packagename)['setuppy'],'__waptsetup__')
@@ -2559,7 +2633,7 @@ class Wapt(object):
                         if not is_system_user():
                             params_dict[p] = raw_input("%s: " % p)
                         else:
-                            raise Exception('Required parameters %s is not supplied' % p)
+                            raise Exception(u'Required parameters %s is not supplied' % p)
 
                 # set params dictionary
                 if not hasattr(setup,'params'):
@@ -2572,7 +2646,7 @@ class Wapt(object):
                 result = setup.uninstall()
                 return result
             else:
-                raise Exception('No uninstall() function in setup.py for package %s' % packagename)
+                raise Exception(u'No uninstall() function in setup.py for package %s' % packagename)
         finally:
             if 'setup' in dir():
                 del setup
@@ -2751,7 +2825,7 @@ def install():
             entry = PackageEntry()
             entry.package = packagename
             entry.architecture='all'
-            entry.description = 'automatic package for %s ' % packagename
+            entry.description = 'host package for %s ' % packagename
             try:
                 entry.maintainer = win32api.GetUserNameEx(3)
             except:
@@ -2763,6 +2837,15 @@ def install():
             entry.priority = 'optional'
             entry.section = 'host'
             entry.version = '0.0.0-00'
+
+            # Check existing versions and increment it
+            older_packages = self.is_available(entry.package)
+            if older_packages and entry<=older_packages[-1]:
+                entry.version = older_packages[-1].version
+                entry.inc_build()
+
+            entry.filename = entry.make_package_filename()
+
             if self.config.has_option('global','default_sources_url'):
                 entry.Sources = self.config.get('global','default_sources_url') % {'packagename':packagename}
             entry.depends = ','.join([u'%s' % k for k in self.waptdb.installed().keys() if k and k<>packagename ])
@@ -2776,6 +2859,10 @@ def install():
         """Checks if a package is installed.
             Return package entry and additional local status or None"""
         return self.waptdb.installed_matching(packagename)
+
+    def installed(self):
+        """returns all installed packages with their status"""
+        return self.waptdb.installed()
 
     def is_available(self,packagename):
         """Checks if a package (with optional version condition) is available.
@@ -2961,6 +3048,9 @@ if __name__ == '__main__':
     cfg.read('c:\\tranquilit\\wapt\\wapt-get.ini')
     w = Wapt(config=cfg)
     print w.waptdb.get_param('toto')
+
+    print w.checkinstall('tis-base',force=True,assume_removed=['tis-firefox'])
+
     #w.waptdb.db_version='00'
     w.waptdb.upgradedb()
     print w.is_installed('tis-firebird')

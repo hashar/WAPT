@@ -69,7 +69,7 @@ import setuphelpers
 
 import types
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 logger = logging.getLogger()
 
@@ -814,7 +814,7 @@ db_upgrades = {
     }
 
 def is_system_user():
-    return win32api.GetUserName().lower() == 'system'
+    return setuphelpers.get_current_user() == 'system'
 
 class WaptDB(object):
     """Class to manage SQLite database with local installation status"""
@@ -1538,7 +1538,7 @@ class Wapt(object):
         self.dry_run = False
 
         # to allow/restrict installation, supplied to packages
-        self.user = win32api.GetUserName()
+        self.user = setuphelpers.get_current_user()
         self.usergroups = None
 
         # database init
@@ -1848,13 +1848,13 @@ class Wapt(object):
 
     def install_wapt(self,fname,params_dict={},public_cert=''):
         """Install a single wapt package given its WAPT filename."""
-        logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, win32api.GetUserName(), params_dict))
+        logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, setuphelpers.get_current_user(), params_dict))
         logger.info(u"Interactive user:%s, usergroups %s" % (self.user,self.usergroups))
         status = 'INIT'
         if not public_cert:
             public_cert = self.get_public_cert()
         if not public_cert and not self.allow_unsigned:
-            raise Exception('No public Key provided for package signature checking, and unsigned packages install is not allowed.\
+            raise Exception(u'No public Key provided for package signature checking, and unsigned packages install is not allowed.\
                     If you want to allow unsigned packages, add "allow_unsigned=1" in wapt-get.ini file')
         previous_uninstall = self.registry_uninstall_snapshot()
         entry = PackageEntry()
@@ -1878,7 +1878,7 @@ class Wapt(object):
         # we setup a redirection of stdout to catch print output from install scripts
         sys.stderr = sys.stdout = install_output = LogInstallOutput(sys.stdout,self.waptdb,install_id)
         hdlr = logging.StreamHandler(install_output)
-        hdlr.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+        hdlr.setFormatter(logging.Formatter(u'%(asctime)s %(levelname)s %(message)s'))
         if logger.handlers:
             old_hdlr = logger.handlers[0]
             logger.handlers[0] = hdlr
@@ -1892,7 +1892,7 @@ class Wapt(object):
             istemporary = False
             if os.path.isfile(fname):
                 packagetempdir = tempfile.mkdtemp(prefix="wapt")
-                logger.info('  unzipping %s to temporary %s' % (fname,packagetempdir))
+                logger.info(u'  unzipping %s to temporary %s' % (fname,packagetempdir))
                 zip = ZipFile2(fname)
                 zip.extractall(path=packagetempdir)
                 istemporary = True
@@ -2248,20 +2248,21 @@ class Wapt(object):
 
         downloaded = self.download_packages(packages,usecache=not download_only and usecache)
         if downloaded.get('errors',[]):
-            raise Exception('Error downloading some files : %s',(downloaded['errors'],))
+            raise Exception(u'Error downloading some files : %s',(downloaded['errors'],))
         actions['downloads'] = downloaded
         logger.debug(u'Downloaded : %s' % (downloaded,))
         def fname(packagefilename):
             return os.path.join(self.packagecachedir,packagefilename)
         if not download_only:
             for (request,p) in to_install:
+                print u"install %s" % (p,)
                 result = self.install_wapt(fname(p.filename),params_dict = params_dict,public_cert=self.get_public_cert())
                 if result<>'OK':
                     actions['errors'].append([request,p])
                     logger.critical(u'Package %s (%s) not installed due to errors' %(request,p))
             return actions
         else:
-            logger.info('Download only, no install performed')
+            logger.info(u'Download only, no install performed')
             return actions
 
     def download_packages(self,package_requests,usecache=True):
@@ -2763,7 +2764,7 @@ def install():
                 entry.maintainer = win32api.GetUserNameEx(3)
             except:
                 try:
-                    entry.maintainer = win32api.GetUserName()
+                    entry.maintainer = setuphelpers.get_current_user()
                 except:
                     entry.maintainer = os.environ['USERNAME']
 
@@ -2830,7 +2831,7 @@ def install():
                 entry.maintainer = win32api.GetUserNameEx(3)
             except:
                 try:
-                    entry.maintainer = win32api.GetUserName()
+                    entry.maintainer = setuphelpers.get_current_user()
                 except:
                     entry.maintainer = os.environ['USERNAME']
 
@@ -3041,7 +3042,7 @@ if __name__ == '__main__':
     logger.logLevel = logging.DEBUG
     if len(logger.handlers)<1:
         hdlr = logging.StreamHandler(sys.stdout)
-        hdlr.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+        hdlr.setFormatter(logging.Formatter(u'%(asctime)s %(levelname)s %(message)s'))
         logger.addHandler(hdlr)
 
     cfg = RawConfigParser()

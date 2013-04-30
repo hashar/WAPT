@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.4.10"
+__version__ = "0.4.11"
 
 import os
 import sys
@@ -417,7 +417,7 @@ def get_loggedinusers():
                 result.append(WTSQuerySessionInformation(win32ts.WTS_CURRENT_SERVER_HANDLE,session['SessionId'],win32ts.WTSUserName))
         return result
     except:
-        return [win32api.GetUserName()]
+        return [setuphelpers.get_current_user()]
 
 def _environ_params(dict_or_module={}):
     """set some environment params in the supplied module or dict"""
@@ -953,6 +953,18 @@ def create_daily_task(name,cmd,parameters, max_runtime=10, repeat_minutes=None, 
     #exit_code, startup_error_code = task.GetExitCode()
     return task
 
+
+def get_current_user():
+    """
+    Get the login name for the current user.
+    """
+    import ctypes
+    MAX_PATH = 260                  # according to a recent WinDef.h
+    name = ctypes.create_unicode_buffer(MAX_PATH)
+    namelen = ctypes.c_int(len(name)) # len in chars, NOT bytes
+    if not ctypes.windll.advapi32.GetUserNameW(name, ctypes.byref(namelen)):
+        raise ctypes.WinError()
+    return name.value
 
 def language():
     """Get the default locale like fr, en, pl etc..  etc"""

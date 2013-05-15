@@ -43,6 +43,7 @@ import platform
 import imp
 import socket
 import dns.resolver
+import copy
 
 import winsys.security
 import winsys.accounts
@@ -66,10 +67,11 @@ import struct
 
 import re
 import setuphelpers
+from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 logger = logging.getLogger()
 
@@ -133,18 +135,6 @@ def splitThousands( s, tSep=',', dSep='.'):
 
     return lhs + splt[ :-1 ] + rhs
 
-"""
-def call_external_process(shell_string):
-    p = subprocess.call(shell_string, shell=True)
-    if (p != 0 ):
-        raise Exception('shell program exited with error code ' + str(p), shell_string)
-
-def check_string(test_string):
-    pattern = r'[^\.A-Za-z0-9\-_]'
-    if re.search(pattern, test_string):
-        #Character other then . a-z 0-9 was found
-        print u'Invalid : %r' % (test_string,)
-"""
 
 def convert_bytes(bytes):
     if bytes is None:
@@ -166,6 +156,8 @@ def convert_bytes(bytes):
         else:
             size = '%.2fb' % bytes
         return size
+
+# adapted from opsi
 
 ## {{{ http://code.activestate.com/recipes/81189/ (r2)
 def pptable(cursor, data=None, rowlens=0, callback=None):
@@ -275,6 +267,24 @@ def html_table(cur,callback=None):
             lines=lines+"<tr>"+"".join(["<td>"+safe_unicode(c)+"</td>" for c in r])+"</tr>"
 
     return "<table border=1  cellpadding=2 cellspacing=0>%s%s</table>" % (head,lines)
+
+
+def merge_dict(d1,d2):
+    """merge similar dict"""
+    result = copy.deepcopy(d1)
+    for k in d2:
+        if k in result:
+            if isinstance(result[k],list):
+                for item in d2[k]:
+                    if not item in result[k]:
+                        result[k].append(item)
+            elif isinstance(result[k],dict):
+                result[k]=merge_dict(result[k],d2[k])
+            else:
+                raise Exception('Unsupported merge')
+        else:
+            result[k] = d2[k]
+    return result
 
 def sha1_for_file(fname, block_size=2**20):
     f = open(fname,'rb')
@@ -629,8 +639,10 @@ class LogInstallOutput(object):
         self.rowid = rowid
 
     def write(self,txt):
+        txt = ensure_unicode(txt)
         self.console.write(txt)
         if txt <> '\n':
+            """
             try:
                 txt = txt.decode('utf8')
             except:
@@ -638,6 +650,7 @@ class LogInstallOutput(object):
                     txt = txt.decode(locale.getpreferredencoding())
                 except:
                     pass
+            """
             self.output.append(txt)
             if txt and txt[-1]<>'\n':
                 txtdb = txt+'\n'
@@ -1394,7 +1407,6 @@ class WaptDB(object):
                     package = PackageEntry()
                     package.load_control_from_wapt(packageListFile[start:end])
                     logger.info(u"%s (%s)" % (package.package,package.version))
-                    logger.debug(package)
                     package.repo_url = repourl
                     package.repo = repo_name
                     self.add_package_entry(package)
@@ -1822,13 +1834,20 @@ class Wapt(object):
                     else:
                     #sinon splitter sur les paramètres
                         args = shlex.split(cmd,posix=False)
-                        # remove double quotes if any
-                        if args[0].startswith('"') and args[0].endswith('"') and (not "/" in cmd or not "--" in cmd):
-                            args[0] = args[0][1:-1]
-                    if ('uninst' in cmd.lower() or 'helper.exe' in cmd.lower()) and not ' /s' in cmd.lower():
-                        args.append('/S')
-                    if ('unins000' in cmd.lower()) and not ' /silent' in cmd.lower():
-                        args.append('/silent')
+
+                    # remove double quotes if any
+                    if args[0].startswith('"') and args[0].endswith('"') and (not "/" in cmd or not "--" in cmd):
+                        args[0] = args[0][1:-1]
+
+                    if ('spuninst' in cmd.lower()):
+                         if not ' /quiet' in cmd.lower():
+                            args.append('/quiet')
+                    elif ('uninst' in cmd.lower() or 'helper.exe' in cmd.lower()) :
+                        if not ' /s' in cmd.lower():
+                            args.append('/S')
+                    elif ('unins000' in cmd.lower()):
+                         if not ' /silent' in cmd.lower():
+                            args.append('/silent')
                 return args
         try:
             return get_fromkey("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall")
@@ -2001,10 +2020,10 @@ class Wapt(object):
                 uninstallstring = setup.uninstallstring
             else:
                 uninstallstring = None
-            logger.info('  uninstall keys : %s' % (new_uninstall_key,))
-            logger.info('  uninstall strings : %s' % (uninstallstring,))
+            logger.info(u'  uninstall keys : %s' % (new_uninstall_key,))
+            logger.info(u'  uninstall strings : %s' % (uninstallstring,))
 
-            logger.info("Install script finished with status %s" % status)
+            logger.info(u"Install script finished with status %s" % status)
             if istemporary:
                 os.chdir(previous_cwd)
                 logger.debug(u"Cleaning package tmp dir")
@@ -2030,15 +2049,12 @@ class Wapt(object):
                     try:
                         uerror = repr(e).decode(locale.getpreferredencoding())
                     except:
-                        try:
-                            uerror = repr(e).decode('utf8')
-                        except:
-                            uerror = repr(e)
+                        uerror = ensure_unicode(e)
                     self.waptdb.update_install_status(install_id,'ERROR',uerror)
                 except Exception,e2:
-                    logger.critical(e2)
+                    logger.critical(ensure_unicode(e2))
             else:
-                logger.critical(e)
+                logger.critical(ensure_unicode(e))
             raise e
         finally:
             if 'setup' in dir():
@@ -2070,7 +2086,7 @@ class Wapt(object):
             co_dir = os.path.join(self.config.get('default_sources_root',entry.package))
         logger.info('sources : %s'% entry.sources)
         logger.info('checkout dir : %s'% co_dir)
-        logger.info(subprocess.check_output('"%s" co "%s" "%s"' % (svncmd,entry.sources,co_dir)))
+        logger.info(ensure_unicode(subprocess.check_output(u'"%s" co "%s" "%s"' % (svncmd,entry.sources,co_dir))))
         return co_dir
 
     def last_install_log(self,packagename):
@@ -2124,14 +2140,15 @@ class Wapt(object):
             forceupgrade : check if the current installed package is the latest available
             force : install the latest version even if the package is already there and match the requirement
             assume_removed: list of packagename which are assumed to be absent even if they are installed to check the
-                            consequences of removal of packages
+                            consequences of removal of packages, implies force=True
         """
         if not isinstance(apackages,list):
             apackages = [apackages]
 
         if not isinstance(assume_removed,list):
             assume_removed = [assume_removed]
-
+        if assume_removed:
+            force=True
         # packages to install after skipping already installed ones
         skipped = []
         unavailable = []
@@ -2197,14 +2214,21 @@ class Wapt(object):
         result =  {'additional':additional_install,'upgrade':to_upgrade,'install':packages,'skipped':skipped,'unavailable':unavailable}
         return {'additional':additional_install,'upgrade':to_upgrade,'install':packages,'skipped':skipped,'unavailable':unavailable}
 
-    def checkremove(packages):
-        """return a list of additional package to remove if packages are removed"""
+    def checkremove(self,apackages):
+        """return a list of additional package to remove if apackages are removed"""
         if not isinstance(apackages,list):
             apackages = [apackages]
-
-        for packagename in apackages:
-            pass
-
+        result = []
+        installed = [ p.package for p in self.installed().values() if p.package not in apackages ]
+        for packagename in installed:
+            # test for each installed package if the removal would imply a reinstall
+            test = self.checkinstall(packagename,assume_removed=apackages)
+            # get package names only
+            reinstall = [ p[0] for p in (test['upgrade'] + test['additional'])]
+            for p in reinstall:
+                if p in apackages and not packagename in result:
+                    result.append(packagename)
+        return result
 
     def install(self,apackages,
         force=False,
@@ -2258,7 +2282,7 @@ class Wapt(object):
             return os.path.join(self.packagecachedir,packagefilename)
         if not download_only:
             for (request,p) in to_install:
-                print u"install %s" % (p,)
+                print u"install %s" % (p.package,)
                 result = self.install_wapt(fname(p.filename),params_dict = params_dict,public_cert=self.get_public_cert())
                 if result<>'OK':
                     actions['errors'].append([request,p])
@@ -2310,17 +2334,27 @@ class Wapt(object):
 
     def remove(self,package,force=False):
         """Removes a package giving its package name, unregister from local status DB"""
+        result = {'removed':[],'errors':[]}
         q = self.waptdb.query("""\
            select * from wapt_localstatus
             where package=?
            """ , (package,) )
         if not q:
             logger.warning(u"Package %s not installed, aborting" % package)
-            return True
-
+            return result
         # several versions installed of the same package... ?
         for mydict in q:
             logger.info("Removing package %s version %s from computer..." % (mydict['package'],mydict['version']))
+
+            # removes recursively meta packages which are not satisfied anymore
+            additional_removes = self.checkremove(package)
+            if additional_removes:
+                logger.info('Additional packages to remove : %s' % additional_removes)
+                for apackage in additional_removes:
+                    res = self.remove(apackage,force=True)
+                    result['removed'].extend(res['removed'])
+                    result['errors'].extend(res['errors'])
+
             if mydict['uninstall_string']:
                 if mydict['uninstall_string'][0] not in ['[','"',"'"]:
                     guids = mydict['uninstall_string']
@@ -2332,13 +2366,16 @@ class Wapt(object):
                 if isinstance(guids,(unicode,str)):
                     guids = [guids]
                 for guid in guids:
-                    try:
-                        logger.info('Running %s' % guid)
-                        logger.info(subprocess.check_output(guid))
-                    except Exception,e:
-                        logger.info("Warning : %s" % e)
-                logger.info('Remove status record from local DB')
+                    if guid:
+                        try:
+                            logger.info('Running %s' % guid)
+                            logger.info(ensure_unicode(subprocess.check_output(guid)))
+                        except Exception,e:
+                            logger.info("Warning : %s" % e)
+                logger.info('Remove status record from local DB for %s' % package)
                 self.waptdb.remove_install_status(package)
+                result['removed'].append(package)
+
             elif mydict['uninstall_key']:
                 if mydict['uninstall_key'][0] not in ['[','"',"'"]:
                     guids = mydict['uninstall_key']
@@ -2356,18 +2393,25 @@ class Wapt(object):
                         try:
                             uninstall_cmd =''
                             uninstall_cmd = self.uninstall_cmd(guid)
-                            logger.info(u'Launch uninstall cmd %s' % (uninstall_cmd,))
-                            print subprocess.check_output(uninstall_cmd,shell=True)
+                            if uninstall_cmd:
+                                logger.info(u'Launch uninstall cmd %s' % (uninstall_cmd,))
+                                print ensure_unicode(subprocess.check_output(uninstall_cmd,shell=True))
                         except Exception,e:
-                            logger.critical(u"Critical error during uninstall of %s: %s" % (uninstall_cmd,e))
-                logger.info('Remove status record from local DB')
+                            logger.critical(u"Critical error during uninstall of %s: %s" % (uninstall_cmd,ensure_unicode(e)))
+                            result['errors'].append(package)
+                logger.info('Remove status record from local DB for %s' % package)
                 self.waptdb.remove_install_status(package)
+                result['removed'].append(package)
             else:
+                logger.critical(u'uninstall key not registered in local DB status, unable to remove properly.')
                 if force:
-                    logger.critical(u'uninstall key not registered in local DB status, unable to remove properly. Please remove manually. Forced removal of local status of package')
+                    logger.critical(u'Forced removal of local status of package %s' % package)
                     self.waptdb.remove_install_status(package)
+                    result['removed'].append(package)
                 else:
+                    result['errors'].append(package)
                     raise Exception('  uninstall key not registered in local DB status, unable to remove properly. Please remove manually')
+        return result
 
     def host_packagename(self):
         """Return package name for current computer"""
@@ -2380,16 +2424,18 @@ class Wapt(object):
         Query localstatus database for packages with a version older than repository
         and install all newest packages
         """
-        result = {}
+        hostresult = {}
         logger.debug(u'Check if host package "%s" is available' % (self.host_packagename(), ))
         host_packages = self.is_available(self.host_packagename())
         if host_packages and not self.is_installed(host_packages[-1].asrequirement()):
-            logger.info('Host package %s is available and not installed, installing host package...' % (host_packages[-1],) )
-            result = self.install(host_packages[-1],force=True)
+            logger.info('Host package %s is available and not installed, installing host package...' % (host_packages[-1].package,) )
+            hostresult = self.install(host_packages[-1],force=True)
 
         upgrades = self.waptdb.upgradeable()
         logger.debug(u'upgrades : %s' % upgrades.keys())
-        return self.install(upgrades.keys(),force=True)
+        result = self.install(upgrades.keys(),force=True)
+        # merge results
+        return merge_dict(result,hostresult)
 
     def list_upgrade(self):
         """Returns a list of packages which can be upgraded
@@ -2410,8 +2456,9 @@ class Wapt(object):
             if decsription is provided, updates local registry with new description
         """
         if description:
-             #reg_openkey_noredir
-             pass
+            #logger.info(u'Updating computer description to %s' % ensure_unicode(description))
+            out = subprocess.check_output("WMIC os set description='%s'" % description)
+            logger.info(ensure_unicode(out))
 
         inv = self.inventory()
         if force:
@@ -2784,10 +2831,10 @@ def install():
             entry.architecture='all'
             entry.description = 'automatic package for %s ' % product_desc
             try:
-                entry.maintainer = win32api.GetUserNameEx(3)
+                entry.maintainer = ensure_unicode(win32api.GetUserNameEx(3))
             except:
                 try:
-                    entry.maintainer = setuphelpers.get_current_user()
+                    entry.maintainer = ensure_unicode(setuphelpers.get_current_user())
                 except:
                     entry.maintainer = os.environ['USERNAME']
 
@@ -2829,7 +2876,7 @@ uninstallkey = []
 # command(s) to launch to remove the application(s)
 uninstallstring = []
 
-# list of required parameters names (string) which canb be used during install
+# list of required parameters names (string) which can be used during install
 required_params = []
 
 def install():
@@ -2851,10 +2898,10 @@ def install():
             entry.architecture='all'
             entry.description = 'host package for %s ' % packagename
             try:
-                entry.maintainer = win32api.GetUserNameEx(3)
+                entry.maintainer = ensure_unicode(win32api.GetUserNameEx(3))
             except:
                 try:
-                    entry.maintainer = setuphelpers.get_current_user()
+                    entry.maintainer = ensure_unicode(setuphelpers.get_current_user())
                 except:
                     entry.maintainer = os.environ['USERNAME']
 
@@ -2884,15 +2931,14 @@ def install():
             Return package entry and additional local status or None"""
         return self.waptdb.installed_matching(packagename)
 
-    def installed(self):
+    def installed(self,include_errors=False):
         """returns all installed packages with their status"""
-        return self.waptdb.installed()
+        return self.waptdb.installed(include_errors=include_errors)
 
     def is_available(self,packagename):
         """Checks if a package (with optional version condition) is available.
             Return package entry or None"""
         return self.waptdb.packages_matching(packagename)
-
 
     def duplicate_package(self,packagename,newname=None,newversion='',target_directory='',
             build=True,
@@ -3073,7 +3119,14 @@ if __name__ == '__main__':
     w = Wapt(config=cfg)
     print w.waptdb.get_param('toto')
 
+    w.remove('tis-winscp')
+
+    print w.checkremove('tis-base')
     print w.checkinstall('tis-base',force=True,assume_removed=['tis-firefox'])
+
+    print w.remove('tis-wapttestsub')
+
+
 
     #w.waptdb.db_version='00'
     w.waptdb.upgradedb()

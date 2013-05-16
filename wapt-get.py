@@ -102,6 +102,7 @@ parser.add_option("-f","--force",    dest="force",    default=False, action='sto
 parser.add_option("-p","--params", dest="params", default='{}', help="Setup params as a JSon Object (example : {'licence':'AZE-567-34','company':'TIS'}} (default: %default)")
 parser.add_option("-r","--repository", dest="wapt_url", default='', help="URL of main wapt repository (override url from ini file, example http://wapt/wapt) (default: %default)")
 parser.add_option("-i","--inc-release",    dest="increlease",    default=False, action='store_true', help="Increase release number when building package (default: %default)")
+parser.add_option("-j","--json",    dest="json_output",    default=False, action='store_true', help="Switch to json output for scripts purpose (default: %default)")
 parser.add_option("-e","--encoding",    dest="encoding",    default=None, help="Chararacter encoding for the output (default: no change)")
 parser.add_option("-x","--excludes",    dest="excludes",    default='.svn,.git*,*.pyc,*.dbg,src', help="Comma separated list of files or directories to exclude for build-package (default: %default)")
 parser.add_option("-k","--private-key", dest="private_key",    default='', help="Path to the PEM RSA private key to sign packages. Package are unsigned if not provided (default: %default)")
@@ -221,32 +222,46 @@ def main():
             raise Exception('Install Parameters must be in json format')
 
         if action=='install' or action=='download':
-            if len(args)<2:
-                print u"You must provide at least one package name"
-                sys.exit(1)
+            if not options.json_output:
+                if len(args)<2:
+                    print u"You must provide at least one package name"
+                    sys.exit(1)
 
-            if os.path.isdir(args[1]) or os.path.isfile(args[1]):
-                print u"installing WAPT file %s" % args[1]
-                if action=='install':
-                    mywapt.install_wapt(args[1],params_dict = params_dict)
-            else:
-                print u"%sing WAPT packages %s" % (action,','.join(args[1:]))
-                if options.update_packages:
-                    print u"Update package list"
-                    mywapt.update()
-
-                result = mywapt.install(args[1:],force = options.force,params_dict = params_dict,
-                    download_only= (action=='download'),
-                    )
-                print u"\nResults :"
-                if action<>'download':
-                    for k in ('install','additional','upgrade','skipped','errors'):
-                        if result.get(k,[]):
-                            print u"\n=== %s packages ===\n%s" % (k,'\n'.join( ["  %-30s | %s (%s)" % (s[0],s[1].package,s[1].version) for s in  result[k]]),)
+                if os.path.isdir(args[1]) or os.path.isfile(args[1]):
+                    print u"installing WAPT file %s" % args[1]
+                    if action=='install':
+                        mywapt.install_wapt(args[1],params_dict = params_dict)
                 else:
-                    for k in ('downloaded','skipped','errors'):
-                        if result.get('downloads', {'downloaded':[],'skipped':[],'errors':[]} )[k]:
-                            print u"\n=== %s packages ===\n%s" % (k,'\n'.join(["  %s" % (s,) for s in result['downloads'][k]]),)
+                    print u"%sing WAPT packages %s" % (action,','.join(args[1:]))
+                    if options.update_packages:
+                        print u"Update package list"
+                        mywapt.update()
+
+                    result = mywapt.install(args[1:],force = options.force,params_dict = params_dict,
+                        download_only= (action=='download'),
+                        )
+                    print u"\nResults :"
+                    if action<>'download':
+                        for k in ('install','additional','upgrade','skipped','errors'):
+                            if result.get(k,[]):
+                                print u"\n=== %s packages ===\n%s" % (k,'\n'.join( ["  %-30s | %s (%s)" % (s[0],s[1].package,s[1].version) for s in  result[k]]),)
+                    else:
+                        for k in ('downloaded','skipped','errors'):
+                            if result.get('downloads', {'downloaded':[],'skipped':[],'errors':[]} )[k]:
+                                print u"\n=== %s packages ===\n%s" % (k,'\n'.join(["  %s" % (s,) for s in result['downloads'][k]]),)
+
+            else:
+                if os.path.isdir(args[1]) or os.path.isfile(args[1]):
+                    if action=='install':
+                        print json.dumps(mywapt.install_wapt(args[1],params_dict = params_dict),default=default_json,indent=True)
+                else:
+                    if options.update_packages:
+                        print json.dumps(mywapt.update(),default=default_json,indent=True)
+
+                    print json.dumps(mywapt.install(args[1:],force = options.force,params_dict = params_dict,
+                        download_only= (action=='download'),
+                        ),default=default_json,indent=True)
+
 
         elif action=='download':
             if len(args)<2:
@@ -502,13 +517,13 @@ def main():
             if options.update_packages:
                 print u"Update package list"
                 mywapt.update()
-            result = mywapt.waptdb.packages_search(args[1:])
-            print ppdicttable(result,(('package',30),('version',10),('description',80),('repo',10)))
+            result = mywapt.search(args[1:])
+            print ppdicttable(result,(('status',10),('package',30),('version',10),('description',80),('repo',10)))
 
         elif action=='search-json':
             if options.update_packages:
                 mywapt.update()
-            print json.dumps([p.as_dict() for p in mywapt.waptdb.packages_search(args[1:])])
+            print json.dumps([p.as_dict() for p in mywapt.search(args[1:])])
 
         elif action=='cleanup':
             result = mywapt.cleanup()
@@ -535,10 +550,10 @@ def main():
                     return value[0:16]
                 else:
                     return value
-            print ppdicttable(mywapt.waptdb.installed_search(args[1:]).values(),(('package',20),('version',15),('install_status',10),('install_date',16),('description',80)),callback=cb)
+            print ppdicttable(mywapt.list(args[1:]),(('package',20),('version',15),('install_status',10),('install_date',16),('description',80)),callback=cb)
 
         elif action=='list-json':
-            print json.dumps([p.as_dict() for p in mywapt.waptdb.installed_search(args[1:]).values()])
+            print json.dumps([p.as_dict() for p in mywapt.search(args[1:])])
 
         else:
             print u'Unknown action %s' % action

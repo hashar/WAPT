@@ -74,7 +74,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 logger = logging.getLogger()
 
@@ -2307,7 +2307,7 @@ class Wapt(object):
         if not download_only:
             for (request,p) in to_install:
                 print u"install %s" % (p.package,)
-                result = self.install_wapt(fname(p.filename),params_dict = params_dict,public_cert=self.get_public_cert())
+                result = self.install_wapt(fname(p.filename),params_dict = params_dict,public_cert=self.get_public_cert(repository=p.repo))
                 if result<>'OK':
                     actions['errors'].append([request,p])
                     logger.critical(u'Package %s (%s) not installed due to errors' %(request,p))
@@ -2341,10 +2341,21 @@ class Wapt(object):
             packagefilename = entry.filename.strip('./')
             download_url = entry.repo_url+'/'+packagefilename
             fullpackagepath = os.path.join(self.packagecachedir,packagefilename)
+            skip = False
             if os.path.isfile(fullpackagepath) and os.path.getsize(fullpackagepath)>0 and usecache:
-                skipped.append(fullpackagepath)
-                logger.info("  Use cached package file from " + fullpackagepath)
-            else:
+                # check version
+                try:
+                    cached = PackageEntry
+                    cached.load_control_from_wapt(fullpackagepath,calc_md5=False)
+                    if entry == cached:
+                        skipped.append(fullpackagepath)
+                        logger.info("  Use cached package file from " + fullpackagepath)
+                        skip = True
+                except Exception,e:
+                    # error : reload
+                    logger.debug('Cache file %s is corrupted, reloading it' % fullpackagepath )
+
+            if not skip:
                 logger.info("  Downloading package from %s" % download_url)
                 try:
                     setuphelpers.wget( download_url, self.packagecachedir,proxies=self.proxies)
@@ -2547,6 +2558,8 @@ class Wapt(object):
     def get_public_cert(self,repository='global'):
         if self.config.has_option(repository,'public_cert'):
             return self.config.get(repository,'public_cert')
+        elif self.config.has_option('global','public_cert'):
+                return self.config.get('global','public_cert')
         else:
             return ''
 

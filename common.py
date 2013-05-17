@@ -722,7 +722,7 @@ def tryurl(url,proxies=None):
         else:
             headers.raise_for_status()
     except Exception,e:
-        logger.debug(u'  Not available : %s' % e)
+        logger.debug(u'  Not available : %s' % ensure_unicode(e))
         return False
 
 PackageKey = namedtuple('package',('packagename','version'))
@@ -1076,7 +1076,7 @@ class WaptDB(object):
                 else:
                     self._db_version = '0000'
             except Exception,e:
-                logger.critical(u'Unable to get DB version (%s), upgrading' % e)
+                logger.critical(u'Unable to get DB version (%s), upgrading' % ensure_unicode(e))
                 self.db.rollback()
                 # pre-params version
                 self._db_version = '0000'
@@ -1390,7 +1390,7 @@ class WaptDB(object):
                 try:
                     self.update_packages_list(repo.repo_url,repo.name,proxies=proxies,force=force)
                 except Exception,e:
-                    logger.critical(u'Error getting packages from %s : %s' % (repo.repo_url,e))
+                    logger.critical(u'Error getting packages from %s : %s' % (repo.repo_url,ensure_unicode(e)))
             logger.debug(u'Commit wapt_package updates')
         except:
             logger.debug(u'rollback delete table')
@@ -1750,7 +1750,7 @@ class Wapt(object):
                                 if is_inmysubnets(ip):
                                     return url
                     except Exception,e:
-                        logging.debug('Unable to resolve : error %s' % (e,))
+                        logging.debug('Unable to resolve : error %s' % (ensure_unicode(e),))
 
                 if working_url:
                     working_url.sort()
@@ -1760,7 +1760,7 @@ class Wapt(object):
                 if not answers:
                     logger.debug(u'  No _wapt._tcp.%s SRV record found' % dnsdomain)
             except dns.exception.DNSException,e:
-                logger.debug(u'  DNS resolver failed looking for _SRV records: %s' % (e,))
+                logger.debug(u'  DNS resolver failed looking for _SRV records: %s' % (ensure_unicode(e),))
 
             # find by dns CNAME
             try:
@@ -1778,7 +1778,7 @@ class Wapt(object):
                     logger.debug(u'  No wapt.%s CNAME SRV record found' % dnsdomain)
 
             except dns.exception.DNSException,e:
-                logger.warning(u'  DNS resolver error : %s' % (e,))
+                logger.warning(u'  DNS resolver error : %s' % (ensure_unicode(e),))
 
             # find by dns A
             try:
@@ -1796,7 +1796,7 @@ class Wapt(object):
                     logger.debug(u'  No %s A record found' % wapthost)
 
             except dns.exception.DNSException,e:
-                logger.warning(u'  DNS resolver error : %s' % (e,))
+                logger.warning(u'  DNS resolver error : %s' % (ensure_unicode(e),))
         else:
             logger.warning(u'Local DNS domain not found, skipping SRV _wapt._tcp and CNAME search ')
 
@@ -2021,7 +2021,7 @@ class Wapt(object):
                     logger.info("  executing install script")
                     exitstatus = setup.install()
                 except Exception,e:
-                    logger.critical(u'Fatal error in install script: %s' % e)
+                    logger.critical(u'Fatal error in install script: %s' % ensure_unicode(e))
                     raise
             else:
                 logger.warning(u'Dry run, not actually running setup.install()')
@@ -2352,8 +2352,8 @@ class Wapt(object):
                 except BaseException as e:
                     if os.path.isfile(fullpackagepath):
                         os.remove(fullpackagepath)
-                    logger.critical(u"Error downloading package from http repository, please update... error : %s" % e)
-                    errors.append((download_url,"%s" % e))
+                    logger.critical(u"Error downloading package from http repository, please update... error : %s" % ensure_unicode(e))
+                    errors.append((download_url,"%s" % ensure_unicode(e)))
         return {"downloaded":downloaded,"skipped":skipped,"errors":errors}
 
     def remove(self,package,force=False):
@@ -2395,7 +2395,7 @@ class Wapt(object):
                             logger.info('Running %s' % guid)
                             logger.info(ensure_unicode(subprocess.check_output(guid)))
                         except Exception,e:
-                            logger.info("Warning : %s" % e)
+                            logger.info("Warning : %s" % ensure_unicode(e))
                 logger.info('Remove status record from local DB for %s' % package)
                 self.waptdb.remove_install_status(package)
                 result['removed'].append(package)

@@ -44,6 +44,7 @@ import imp
 import socket
 import dns.resolver
 import copy
+import getpass
 
 import winsys.security
 import winsys.accounts
@@ -74,7 +75,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.1.11"
+__version__ = "0.1.13"
 
 logger = logging.getLogger()
 
@@ -655,15 +656,6 @@ class LogInstallOutput(object):
         txt = ensure_unicode(txt)
         self.console.write(txt)
         if txt <> '\n':
-            """
-            try:
-                txt = txt.decode('utf8')
-            except:
-                try:
-                    txt = txt.decode(locale.getpreferredencoding())
-                except:
-                    pass
-            """
             self.output.append(txt)
             if txt and txt[-1]<>'\n':
                 txtdb = txt+'\n'
@@ -856,6 +848,8 @@ def adjust_privileges():
     return win32security.AdjustTokenPrivileges(htoken, 0, privileges)
 
 
+key_passwd = None
+
 class WaptDB(object):
     """Class to manage SQLite database with local installation status"""
     dbpath = ''
@@ -1007,7 +1001,7 @@ class WaptDB(object):
         create table if not exists wapt_params (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name  varchar(64),
-          value varchar(255),
+          value text,
           create_date varchar(255)
           ) """)
 
@@ -1114,8 +1108,8 @@ class WaptDB(object):
         try:
             self.db.execute('insert or replace into wapt_params(name,value,create_date) values (?,?,?)',(name,value,datetime2isodate()))
             self.db.commit()
-        except:
-            logger.criticalu('Unable to set param %s : %s' % (name,value))
+        except Exception,e:
+            logger.critical('Unable to set param %s : %s : %s' % (name,value,ensure_unicode(e)))
             self.db.rollback()
 
     def get_param(self,name,default=None):
@@ -1352,6 +1346,23 @@ class WaptDB(object):
         for p in q:
             result[p.package]= p
         return result
+
+    def install_status(self,id):
+        """Return a PackageEntry of the local install status for id"""
+        sql = ["""\
+              select l.package,l.version,l.architecture,l.install_date,l.install_status,l.install_output,l.install_params,l.explicit_by,l.setuppy,
+                r.section,r.priority,r.maintainer,r.description,r.depends,r.sources,r.filename,r.size,
+                r.repo_url,r.md5sum,r.repo
+                from wapt_localstatus l
+                left join wapt_package r on r.package=l.package and l.version=r.version and (l.architecture is null or l.architecture=r.architecture)
+                where l.id = ?
+           """]
+
+        q = self.query_package_entry('\n'.join(sql),args = [id])
+        if q:
+            return q[0]
+        else:
+            return None
 
     def installed_search(self,searchwords=[]):
         """Return a list of installed package entries"""
@@ -1913,7 +1924,8 @@ class Wapt(object):
         return errors
 
     def install_wapt(self,fname,params_dict={},public_cert='',explicit_by=None):
-        """Install a single wapt package given its WAPT filename."""
+        """Install a single wapt package given its WAPT filename.
+        return install status"""
         logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, setuphelpers.get_current_user(), params_dict))
         logger.info(u"Interactive user:%s, usergroups %s" % (self.user,self.usergroups))
         status = 'INIT'
@@ -1942,7 +1954,8 @@ class Wapt(object):
         install_id = None
         install_id = self.waptdb.add_start_install(entry.package ,entry.version,entry.architecture,params_dict=params_dict,explicit_by=explicit_by)
         # we setup a redirection of stdout to catch print output from install scripts
-        sys.stderr = sys.stdout = install_output = LogInstallOutput(sys.stdout,self.waptdb,install_id)
+        sys.stderr = sys.stdout = install_output = LogInstallOutput(sys.stderr,self.waptdb,install_id)
+        """
         hdlr = logging.StreamHandler(install_output)
         hdlr.setFormatter(logging.Formatter(u'%(asctime)s %(levelname)s %(message)s'))
         if logger.handlers:
@@ -1951,7 +1964,7 @@ class Wapt(object):
         else:
             old_hdlr = None
             logger.addHandler(hdlr)
-
+        """
         try:
             logger.info(u"Installing package " + fname)
             # case where fname is a wapt zipped file, else directory (during developement)
@@ -2084,8 +2097,7 @@ class Wapt(object):
                     logger.warning(u"Unable to clean tmp dir")
 
             self.waptdb.update_install_status(install_id,status,'',str(new_uninstall_key) if new_uninstall_key else '',str(uninstallstring) if uninstallstring else '')
-            # (entry.package,entry.version,status,json.dumps({'output':install_output.output,'exitstatus':exitstatus}))
-            return status
+            return self.waptdb.install_status(install_id)
 
         except Exception,e:
             if install_id:
@@ -2103,13 +2115,27 @@ class Wapt(object):
         finally:
             if 'setup' in dir():
                 del setup
+            """
             if old_hdlr:
                 logger.handlers[0] = old_hdlr
             else:
                 logger.removeHandler(hdlr)
+            """
             sys.stdout = old_stdout
             sys.stderr = old_stderr
             sys.path = oldpath
+
+            try:
+                status={
+                    "upgrades": [ "%s" % (p[0].asrequirement(),) for p in self.list_upgrade()],
+                    "date":datetime2isodate(),
+                    }
+                logger.debug("store status in DB")
+                self.write_param('last_update_status',jsondump(status))
+            except Exception,e:
+                logger.critical('Unable to store status of update in DB : %s'% ensure_unicode(e))
+
+
 
     def get_sources(self,package):
         """Download sources of package (if referenced in package as a https svn)
@@ -2175,7 +2201,14 @@ class Wapt(object):
             "removed": [ p for p in previous if not p in current],
             "count" : len(current),
             "repos" : [r.repo_url for r in self.repositories],
+            "upgrades": [ "%s" % (p[0].asrequirement(),) for p in self.list_upgrade()],
+            "date":datetime2isodate(),
             }
+        try:
+            logger.debug("store status in DB")
+            self.write_param('last_update_status',jsondump( {'upgrades':result['upgrades'],"date":datetime2isodate()} ))
+        except Exception,e:
+            logger.critical('Unable to store status of update in DB : %s'% ensure_unicode(e))
         return result
 
     def checkinstall(self,apackages,forceupgrade=False,force=False,assume_removed=[]):
@@ -2338,7 +2371,10 @@ class Wapt(object):
                     public_cert=self.get_public_cert(repository=p.repo),
                     explicit_by=self.user if request in apackages else None
                     )
-                if result<>'OK':
+                if result:
+                    for k in result.as_dict():
+                        p[k] = result[k]
+                if not result or result['install_status']<>'OK':
                     actions['errors'].append([request,p])
                     logger.critical(u'Package %s (%s) not installed due to errors' %(request,p))
             return actions
@@ -2375,7 +2411,7 @@ class Wapt(object):
             if os.path.isfile(fullpackagepath) and os.path.getsize(fullpackagepath)>0 and usecache:
                 # check version
                 try:
-                    cached = PackageEntry
+                    cached = PackageEntry()
                     cached.load_control_from_wapt(fullpackagepath,calc_md5=False)
                     if entry == cached:
                         skipped.append(fullpackagepath)
@@ -2476,11 +2512,31 @@ class Wapt(object):
                 else:
                     result['errors'].append(package)
                     raise Exception('  uninstall key not registered in local DB status, unable to remove properly. Please remove manually')
+
+        try:
+            status={
+                "upgrades": [ "%s" % (p[0].asrequirement(),) for p in self.list_upgrade()],
+                "date":datetime2isodate(),
+                }
+            logger.debug("store status in DB")
+            self.write_param('last_update_status',jsondump(status))
+        except Exception,e:
+            logger.critical('Unable to store status of update in DB : %s'% ensure_unicode(e))
+
         return result
 
     def host_packagename(self):
         """Return package name for current computer"""
         return "%s" % (setuphelpers.get_hostname().lower())
+
+    def check_host_package(self):
+        hostresult = {}
+        logger.debug(u'Check if host package "%s" is available' % (self.host_packagename(), ))
+        host_packages = self.is_available(self.host_packagename())
+        if host_packages and not self.is_installed(host_packages[-1].asrequirement()):
+            return host_packages
+        else:
+            return None
 
     def upgrade(self):
         """\
@@ -2489,16 +2545,26 @@ class Wapt(object):
         Query localstatus database for packages with a version older than repository
         and install all newest packages
         """
-        hostresult = {}
-        logger.debug(u'Check if host package "%s" is available' % (self.host_packagename(), ))
-        host_packages = self.is_available(self.host_packagename())
-        if host_packages and not self.is_installed(host_packages[-1].asrequirement()):
+
+        host_package = self.check_host_package()
+        if host_package:
             logger.info('Host package %s is available and not installed, installing host package...' % (host_packages[-1].package,) )
             hostresult = self.install(host_packages[-1],force=True)
 
         upgrades = self.waptdb.upgradeable()
         logger.debug(u'upgrades : %s' % upgrades.keys())
         result = self.install(upgrades.keys(),force=True)
+
+        try:
+            status={
+                "upgrades": [ "%s" % (p[0].asrequirement(),) for p in self.list_upgrade()],
+                "date":datetime2isodate(),
+                }
+            logger.debug("store status in DB")
+            self.write_param('last_update_status',jsondump(status))
+        except Exception,e:
+            logger.critical('Unable to store status of update in DB : %s'% ensure_unicode(e))
+
         # merge results
         return merge_dict(result,hostresult)
 
@@ -2506,7 +2572,12 @@ class Wapt(object):
         """Returns a list of packages which can be upgraded
            Package,Current Version,Available version
         """
-        return self.waptdb.upgradeable().values()
+        result = []
+        host_package = self.check_host_package()
+        if host_package:
+            result.append(host_package)
+        result.extend(self.waptdb.upgradeable().values())
+        return result
 
     def search(self,searchwords=[]):
         """Returns a list of packages which have the searchwords
@@ -2557,6 +2628,11 @@ class Wapt(object):
             logger.info(ensure_unicode(out))
 
         inv = self.inventory()
+        uuid = self.read_param('uuid')
+        if not uuid:
+            uuid = inv['host']['uuid']
+            self.write_param('uuid',uuid)
+        inv['uuid'] = uuid
         if force:
             inv['force']=True
         if self.wapt_server:
@@ -2565,6 +2641,31 @@ class Wapt(object):
             return req.content
         else:
             return json.dumps(inv,indent=True)
+
+    def update_server_status(self,force=False):
+        """Send packages and software informations to WAPT Server, don't send dmi
+        """
+        uuid = self.read_param('uuid')
+        if not uuid:
+            self.register_computer(force=force)
+        else:
+            inv = {'uuid': uuid}
+            inv['softwares'] = setuphelpers.installed_softwares('')
+            inv['packages'] = [p.as_dict() for p in self.waptdb.installed(include_errors=True).values()]
+
+            if force:
+                inv['force']=True
+
+            if self.wapt_server:
+                req = requests.post("%s/update_host" % (self.wapt_server,),json.dumps(inv))
+                try:
+                    req.raise_for_status()
+                except Exception,e:
+                    logger.warning('Unable to update server status : %s' % ensure_unicode(e))
+                return req.content
+            else:
+                return json.dumps(inv,indent=True)
+
 
     def inventory(self,with_soft=True):
         """Return software inventory of the computer as a dictionary"""
@@ -2708,6 +2809,36 @@ class Wapt(object):
             sys.path = oldpath
             logger.debug(u'  Change current directory to %s' % previous_cwd)
             os.chdir(previous_cwd)
+
+    def build_upload(self,source_dir):
+        print('Building  %s' % source_dir)
+        result = self.buildpackage(source_dir)
+        package_fn = result['filename']
+        if package_fn:
+            def pwd_callback(*args):
+                """Default password callback for opening private keys"""
+                global key_passwd
+                if not key_passwd:
+                    key_passwd = getpass.getpass('Private key password :').encode('ascii')
+                return key_passwd
+
+            if self.private_key:
+                print('Signing %s' % package_fn)
+                signature = self.signpackage(package_fn,callback=pwd_callback)
+                print u"Package %s signed : signature :\n%s" % (package_fn,signature)
+            else:
+                logger.warning(u'No private key provided, package %s is unsigned !' % package_fn)
+
+            # continue with upload
+            print 'Uploading files...'
+            if self.upload_cmd and 'build-upload':
+                print setuphelpers.run(self.upload_cmd % {'waptfile': package_fn})
+                if self.after_upload:
+                    print 'Run after upload script...'
+                    print setuphelpers.run(self.after_upload % {'waptfile': package_fn })
+                else:
+                    print u'\nYou can upload to repository with\n  %s upload-package %s ' % (sys.argv[0],'"%s"' % (package_fn,) )
+
 
     def session_setup(self,packagename,params_dict={}):
         """Setup the user session for a specific system wide installed package"
@@ -3073,9 +3204,10 @@ def install():
             private_key=None,
             callback=pwd_callback):
         """Duplicate an existing package from repositories into targetdirectory with newname.
-            Return the package filename or the directory name of the new package
+            Return a dict with the PackageEntry and the package filename or the directory name of the new package
             unzip: unzip packages at end for modifications, don't sign, return directory name
             excludes: excluded files for signing"""
+        result = {'target':None,'package':PackageEntry()}
 
         # suppose target directory
         if not target_directory:
@@ -3142,9 +3274,11 @@ def install():
                 self.signpackage(target_filename,excludes=excludes,private_key=private_key,callback=callback)
             else:
                 logger.warning(u'No private key provided, packahe is not signed !')
-            return target_filename
+            result['target'] = target_filename
         else:
-            return package_dev_dir
+            result['target'] = package_dev_dir
+        result['package'] = dest_control
+        return result
 
     def setup_tasks(self):
         result = []
@@ -3188,17 +3322,17 @@ def install():
             result.append('wapt-update')
         return result
 
-    def write_param(name,value):
+    def write_param(self,name,value):
         """Store in local db a key/value pair for later use"""
         self.waptdb.set_param(name,value)
 
-    def read_param(name):
-        """Store in local db a key/value pair for later use"""
-        return self.waptdb.set_param(name,value)
+    def read_param(self,name,default=None):
+        """read a param value from local db """
+        return self.waptdb.get_param(name,default)
 
-    def delete_param(name):
-        """Store in local db a key/value pair for later use"""
-        self.waptdb.delete_param(name,value)
+    def delete_param(self,name):
+        """Remove a key from local db"""
+        self.waptdb.delete_param(name)
 
 ###
 

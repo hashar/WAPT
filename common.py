@@ -102,6 +102,8 @@ def fileisodate(filename):
 def dateof(adatetime):
     return adatetime.replace(hour=0,minute=0,second=0,microsecond=0)
 
+ArchitecturesList = ('all','x86','x64')
+
 #####################################
 # http://code.activestate.com/recipes/498181-add-thousands-separator-commas-to-formatted-number/
 # Code from Michael Robellard's comment made 28 Feb 2010
@@ -1913,7 +1915,8 @@ class Wapt(object):
                 raise
 
     def corrupted_files_sha1(self,rootdir,manifest):
-        """check hexdigest sha1 for the files in manifest, returns a list of non matching files (corrupted files)"""
+        """check hexdigest sha1 for the files in manifest
+        returns a list of non matching files (corrupted files)"""
         assert os.path.isdir(rootdir)
         assert isinstance(manifest,list) or isinstance(manifest,tuple)
         errors = []
@@ -2784,6 +2787,10 @@ class Wapt(object):
 
             # check version syntax
             parse_major_minor_patch_build(entry.version)
+
+            # check architecture
+            if not entry.architecture in ArchitecturesList:
+                raise Exception('Architecture should one of %s' % (ArchitecturesList,)
 
             if inc_package_release:
                 entry.inc_build()

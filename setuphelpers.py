@@ -246,7 +246,7 @@ def filecopyto(filename,target):
 
 # Copy of an entire tree from install temp directory to target
 def default_oncopy(msg,src,dst):
-    print(u'%s : "%s" to "%s"' % (msg,src,dst))
+    logger.debug(u'%s : "%s" to "%s"' % (msg,src,dst))
     return True
 
 def default_skip(src,dst):
@@ -290,6 +290,7 @@ def copytree2(src, dst, ignore=None,onreplace=default_skip,oncopy=default_oncopy
         oncopy is called for each file copy. if False is returned, copy is skipped
         onreplace is called when a file will be overwritten.
     """
+    logger.debug('Copy tree from "%s" to "%s"' % (ensure_unicode(src),ensure_unicode(dst)))
     # path relative to temp directory...
     tempdir = os.getcwd()
     if not os.path.isdir(src) and os.path.isdir(os.path.join(tempdir,src)):
@@ -324,6 +325,7 @@ def copytree2(src, dst, ignore=None,onreplace=default_skip,oncopy=default_oncopy
                     if oncopy('copy',srcname,dstname):
                         shutil.copy2(srcname, dstname)
         except (IOError, os.error), why:
+            logger.critical(u'Error copying from "%s" to "%s" : %s' % (ensure_unicode(src),ensure_unicode(dst),ensure_unicode(why)))
             errors.append((srcname, dstname, str(why)))
         # catch the Error from the recursive copytree so that we can
         # continue with other files

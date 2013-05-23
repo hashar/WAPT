@@ -2641,7 +2641,7 @@ class Wapt(object):
         if force:
             inv['force']=True
         if self.wapt_server:
-            req = requests.post("%s/add_host" % (self.wapt_server,),json.dumps(inv))
+            req = requests.post("%s/add_host" % (self.wapt_server,),json.dumps(inv),proxies=self.proxies)
             req.raise_for_status()
             return req.content
         else:
@@ -2662,7 +2662,7 @@ class Wapt(object):
                 inv['force']=True
 
             if self.wapt_server:
-                req = requests.post("%s/update_host" % (self.wapt_server,),json.dumps(inv))
+                req = requests.post("%s/update_host" % (self.wapt_server,),json.dumps(inv),proxies=self.proxies)
                 try:
                     req.raise_for_status()
                 except Exception,e:
@@ -2790,7 +2790,7 @@ class Wapt(object):
 
             # check architecture
             if not entry.architecture in ArchitecturesList:
-                raise Exception('Architecture should one of %s' % (ArchitecturesList,)
+                raise Exception('Architecture should one of %s' % (ArchitecturesList,))
 
             if inc_package_release:
                 entry.inc_build()

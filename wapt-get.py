@@ -265,12 +265,12 @@ def main():
                 if os.path.isdir(args[1]) or os.path.isfile(args[1]):
                     print u"installing WAPT file %s" % args[1]
                     if action=='install':
-                        result = mywapt.install_wapt(args[1],params_dict = params_dict)
+                        result= {'install':[ (args[1],mywapt.install_wapt(args[1],params_dict = params_dict))]}
                 else:
                     print u"%sing WAPT packages %s" % (action,','.join(args[1:]))
                     if options.update_packages:
                         print u"Update package list"
-                        result = mywapt.update()
+                        mywapt.update()
 
                     result = mywapt.install(args[1:],force = options.force,params_dict = params_dict,
                         download_only= (action=='download'),

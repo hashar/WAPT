@@ -3381,7 +3381,7 @@ class Version():
 
 
 if __name__ == '__main__':
-    logger.logLevel = logging.DEBUG
+    logger.setLevel(logging.DEBUG)
     if len(logger.handlers)<1:
         hdlr = logging.StreamHandler(sys.stdout)
         hdlr.setFormatter(logging.Formatter(u'%(asctime)s %(levelname)s %(message)s'))

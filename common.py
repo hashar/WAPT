@@ -858,7 +858,7 @@ class WaptDB(object):
     dbpath = ''
     db = None
 
-    curr_db_version = '20130423'
+    curr_db_version = '20130523'
 
     def __init__(self,dbpath):
         self._db_version = None

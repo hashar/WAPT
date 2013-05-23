@@ -117,6 +117,7 @@ parser.add_option("-k","--private-key", dest="private_key",    default='', help=
 parser.add_option("-w","--private-key-passwd", dest="private_key_passwd", default='', help="Path to the password of the private key. (default: %default)")
 parser.add_option("-U","--user", dest="user", default=None, help="Interactive user (default: no change)")
 parser.add_option("-g","--usergroups", dest="usergroups", default='[]', help="Groups of the final user as a JSon array for checking install permission (default: %default)")
+parser.add_option("-t","--maxttl", type='int',  dest="max_ttl", default=60, help="Max run time of wapt-get process before being killed by subsequent wapt-get (default: %default)")
 parser.add_option("-L","--language",    dest="language",    default=None, help="Override language for install (example : fr) (default: no change)")
 
 (options,args)=parser.parse_args()
@@ -257,6 +258,9 @@ def main():
             except:
                 raise Exception('Install Parameters must be in json format')
 
+            # cleanup environement, remove stalled wapt-get, update install_status
+            running_install = mywapt.check_install_running(max_ttl=options.max_ttl)
+
             if action=='install' or action=='download':
                 if len(args)<2:
                     print u"You must provide at least one package name"
@@ -265,6 +269,9 @@ def main():
                 if os.path.isdir(args[1]) or os.path.isfile(args[1]):
                     print u"installing WAPT file %s" % args[1]
                     if action=='install':
+                        # abort if there is already a running install in progress
+                        if running_install:
+                            raise Exception('Running wapt-get in progress, please wait...')
                         result= {'install':[ (args[1],mywapt.install_wapt(args[1],params_dict = params_dict))]}
                 else:
                     print u"%sing WAPT packages %s" % (action,','.join(args[1:]))
@@ -272,6 +279,8 @@ def main():
                         print u"Update package list"
                         mywapt.update()
 
+                    if running_install and action=='install':
+                        raise Exception('Running wapt-get in progress, please wait...')
                     result = mywapt.install(args[1:],force = options.force,params_dict = params_dict,
                         download_only= (action=='download'),
                         )
@@ -363,6 +372,9 @@ def main():
                 if len(args)<2:
                     print u"You must provide at least one package name to remove"
                     sys.exit(1)
+                # abort if there is already a running install in progress
+                if running_install:
+                    raise Exception('Running wapt-get in progress, please wait...')
                 for packagename in args[1:]:
                     print u"Removing %s ..." % (packagename,)
                     result = mywapt.remove(packagename,force=options.force)
@@ -430,6 +442,9 @@ def main():
                 if options.update_packages:
                     print u"Update package list"
                     mywapt.update()
+                # abort if there is already a running install in progress
+                if running_install:
+                    raise Exception('Running wapt-get in progress, please wait...')
                 result = mywapt.upgrade()
                 if options.json_output:
                     jsonresult['result'] = result

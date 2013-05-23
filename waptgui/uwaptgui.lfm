@@ -14,9 +14,9 @@ object VisWaptGUI: TVisWaptGUI
     Height = 460
     Top = 0
     Width = 1028
-    ActivePage = pgEditPackage
+    ActivePage = TabSheet2
     Align = alClient
-    TabIndex = 4
+    TabIndex = 1
     TabOrder = 0
     object TabSheet1: TTabSheet
       Caption = 'Sources'
@@ -940,7 +940,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             AutoSize = True
             Caption = 'Depends'
-            Width = 698
+            Width = 502
           end>
         Items.LazData = {
           7A00000003000000FFFFFFFFFFFFFFFFFFFFFFFF020000000400000074657374
@@ -1157,6 +1157,7 @@ object VisWaptGUI: TVisWaptGUI
   object PythonGUIInputOutput1: TPythonGUIInputOutput
     UnicodeIO = False
     RawOutput = False
+    Output = Memo1
     left = 352
     top = 200
   end

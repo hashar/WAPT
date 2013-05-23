@@ -45,6 +45,7 @@ import socket
 import dns.resolver
 import copy
 import getpass
+import psutil
 
 import winsys.security
 import winsys.accounts
@@ -993,7 +994,8 @@ class WaptDB(object):
           install_params VARCHAR(800),
           uninstall_string varchar(255),
           uninstall_key varchar(255),
-          setuppy TEXT
+          setuppy TEXT,
+          process_id integer
           )"""
                         )
         self.db.execute("""
@@ -1221,8 +1223,9 @@ class WaptDB(object):
                     install_status,
                     install_output,
                     install_params,
-                    explicit_by
-                    ) values (?,?,?,?,?,?,?,?)
+                    explicit_by,
+                    process_id
+                    ) values (?,?,?,?,?,?,?,?,?)
                 """,(
                      package,
                      version,
@@ -1232,6 +1235,7 @@ class WaptDB(object):
                      '',
                      json.dumps(params_dict),
                      explicit_by,
+                     os.getpid()
                    ))
         finally:
             self.db.commit()
@@ -1240,16 +1244,36 @@ class WaptDB(object):
     def update_install_status(self,rowid,install_status,install_output,uninstall_key=None,uninstall_string=None):
         """Update status of package installation on localdb"""
         try:
+            if install_status in ('OK','ERROR'):
+                pid = None
+            else:
+                pid = os.getpid()
             cur = self.db.execute("""\
                   update wapt_localstatus
-                    set install_status=?,install_output = install_output || ?,uninstall_key=?,uninstall_string=?
+                    set install_status=?,install_output = install_output || ?,uninstall_key=?,uninstall_string=?,process_id=?
                     where rowid = ?
                 """,(
                      install_status,
                      install_output,
                      uninstall_key,
                      uninstall_string,
+                     pid,
                      rowid,
+                     )
+                   )
+        finally:
+            self.db.commit()
+        return cur.lastrowid
+
+    def update_install_status_pid(self,pid,install_status='ERROR'):
+        """Update status of package installation on localdb"""
+        try:
+            cur = self.db.execute("""\
+                  update wapt_localstatus
+                    set install_status=? where process_id = ?
+                """,(
+                     install_status,
+                     pid,
                      )
                    )
         finally:
@@ -1382,12 +1406,12 @@ class WaptDB(object):
                 r.repo_url,r.md5sum,r.repo
                  from wapt_localstatus l
                 left join wapt_package r on r.package=l.package and l.version=r.version and (l.architecture is null or l.architecture=r.architecture)
-              where l.install_status in ("OK","UNKNOWN") and %s
+              where %s
            """ % " and ".join(search),words)
         return q
 
     def installed_matching(self,package_cond):
-        """Return True if one installed package match te package condition 'tis-package (>=version)' """
+        """Return True if one properly installed package match the package condition 'tis-package (>=version)' """
         package = REGEX_PACKAGE_CONDITION.match(package_cond).groupdict()['package']
         q = self.query_package_entry("""\
               select l.package,l.version,l.architecture,l.install_date,l.install_status,l.install_output,l.install_params,l.setuppy,l.explicit_by,
@@ -1835,6 +1859,45 @@ class Wapt(object):
 
         return None
 
+    def check_install_running(self,max_ttl=60):
+        """ Check if an install is in progress, return list of pids of install in progress
+            Kill old stucked wapt-get processes/children and update db status
+            max_ttl is maximum age of wapt-get in minutes
+        """
+        wapt_processes = [ p for p in setuphelpers.find_processes('wapt-get') if p.pid <> os.getpid() ]
+
+        # kill old wapt-get
+        mindate = time.time() - max_ttl*60
+
+        # to keep the list of supposed killed
+        killed=[]
+        for p in wapt_processes:
+            if p.create_time < mindate:
+                setuphelpers.killtree(p.pid)
+                killed.append(p.pid)
+
+        # reset install_status
+        init_run_pids = self.waptdb.query("""\
+           select process_id from wapt_localstatus
+              where install_status in ('INIT','RUNNING')
+           """ )
+
+        all_pids = psutil.get_pid_list()
+        reset_error = []
+        result = []
+        for rec in init_run_pids:
+            # check if process is no more running
+            if not rec['process_id'] in all_pids or rec['process_id'] in killed:
+                reset_error.append(rec['process_id'])
+            else:
+                # install in progress
+                result.append(rec['process_id'])
+
+        for pid in reset_error:
+            self.waptdb.update_install_status_pid(pid,'ERROR')
+        # return pids of install in progress
+        return result
+
     def registry_uninstall_snapshot(self):
         """Return list of uninstall ID from registry
              launched before and after an installation to capture uninstallkey
@@ -2159,7 +2222,7 @@ class Wapt(object):
             co_dir = os.path.join(self.config.get('default_sources_root',entry.package))
         logger.info('sources : %s'% entry.sources)
         logger.info('checkout dir : %s'% co_dir)
-        logger.info(ensure_unicode(subprocess.check_output(u'"%s" co "%s" "%s"' % (svncmd,entry.sources,co_dir))))
+        logger.info(setuphelpers.run(u'"%s" co "%s" "%s"' % (svncmd,entry.sources,co_dir)))
         return co_dir
 
     def last_install_log(self,packagename):
@@ -2473,7 +2536,7 @@ class Wapt(object):
                     if guid:
                         try:
                             logger.info('Running %s' % guid)
-                            logger.info(ensure_unicode(subprocess.check_output(guid)))
+                            logger.info(setuphelpers.run(guid))
                         except Exception,e:
                             logger.info("Warning : %s" % ensure_unicode(e))
                 logger.info('Remove status record from local DB for %s' % package)
@@ -2499,7 +2562,7 @@ class Wapt(object):
                             uninstall_cmd = self.uninstall_cmd(guid)
                             if uninstall_cmd:
                                 logger.info(u'Launch uninstall cmd %s' % (uninstall_cmd,))
-                                print ensure_unicode(subprocess.check_output(uninstall_cmd,shell=True))
+                                print setuphelpers.run(uninstall_cmd)
                         except Exception,e:
                             logger.critical(u"Critical error during uninstall of %s: %s" % (uninstall_cmd,ensure_unicode(e)))
                             result['errors'].append(package)
@@ -2613,7 +2676,7 @@ class Wapt(object):
         """Returns a list of installed packages which have the searchwords
            in their description
         """
-        return self.waptdb.installed_search(searchwords=searchwords)
+        return self.waptdb.installed_search(searchwords=searchwords,)
 
     def download_upgrades(self):
         """Download packages that can be upgraded"""
@@ -2629,7 +2692,7 @@ class Wapt(object):
         """
         if description:
             #logger.info(u'Updating computer description to %s' % ensure_unicode(description))
-            out = subprocess.check_output("WMIC os set description='%s'" % description)
+            out = setuphelpers.run(u"WMIC os set description='%s'" % description,shell=False)
             logger.info(ensure_unicode(out))
 
         inv = self.inventory()
@@ -2757,7 +2820,7 @@ class Wapt(object):
             except:
                 raise Exception('Encoding of setup.py is not utf8')
 
-            mandatory = [('install',types.FunctionType) ,('uninstallkey',types.ListType),('uninstallstring',types.ListType)]
+            mandatory = [('install',types.FunctionType) ,('uninstallkey',types.ListType),]
             for (attname,atttype) in mandatory:
                 if not hasattr(setup,attname):
                     raise Exception('setup.py has no %s (%s)' % (attname,atttype))
@@ -3391,6 +3454,7 @@ if __name__ == '__main__':
     cfg.read('c:\\tranquilit\\wapt\\wapt-get.ini')
     w = Wapt(config=cfg)
     print w.waptdb.get_param('toto')
+    print w.check_install_running(max_ttl = 1)
 
     w.remove('tis-winscp')
 

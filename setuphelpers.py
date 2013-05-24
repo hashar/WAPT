@@ -861,7 +861,8 @@ def host_info(with_wmi=False):
     info = {}
     #dmiout = run(os.path.join(os.path.dirname(sys.argv[0]),'dmidecode'))
     dmiout = run('dmidecode -q',shell=False)
-    info['dmi'] = dmidecode_dict(dmiout)
+    dmi_info =  dmidecode_dict(dmiout)
+    info['dmi'] = dmi_info
 
     info['uuid'] = dmi_info.get('System Information',{}).get('UUID','')
     if not info['uuid']:

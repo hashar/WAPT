@@ -29,6 +29,8 @@ import tempfile
 import shutil
 import sys 
 import logging
+import ConfigParser
+from optparse import OptionParser
 
 
 logger = logging.getLogger()
@@ -37,27 +39,52 @@ hdlr.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
 logger.addHandler(hdlr)
 logger.setLevel(logging.CRITICAL)
 
+parser = OptionParser()
+parser.add_option('-c', help='pass config file')
+(options, args) = parser.parse_args()
 
-#Remote WAPT Repository 
-#mainRepo = "http://wapt/wapt/"
-mainRepo = "http://srvinstallation.tranquil.it/wapt/"
-
-#Local WAPT Repository
-waptDir = "/var/www/wapt/"
-
-
-# download new packages if present
-donwloadNewPackages = True
+if options.c:
+    config_file = options.c
+else:
+    config_file = '/etc/tis/config-waptzsync.ini'
 
 
-urllib.urlretrieve(mainRepo+"wapt-scanpackages.py", waptDir+'wapt-scanpackages.py')
-urllib.urlretrieve(mainRepo+"waptpackage.py", waptDir+'waptpackage.py')
-os.system("/usr/bin/zsync  %s.zsync -o %s" % (mainRepo+"waptsetup.exe", waptDir+"waptsetup.exe"))
+if not os.path.exists(config_file):
+    raise Exception("No config file found")
 
-if not os.path.exists(waptDir+"Packages"):
-    os.system('cd '+waptDir+'&& python wapt-scanpackages.py .')
 
-sys.path.append(waptDir)
+config = ConfigParser.ConfigParser()
+config.read(config_file)
+
+section = config.sections()[0]
+
+if config.has_option(section, 'main_repo'):
+    main_repo = config.get(section, 'main_repo')
+else:
+    main_repo = "http://srvinstallation.tranquil.it/wapt/" 
+    
+if config.has_option(section, 'wapt_dir'):
+    wapt_dir = config.get(section, 'wapt_dir')
+else:
+    wapt_dir = "/var/www/wapt/"
+    
+if config.has_option(section, 'donwload_new_packages'):
+    donwload_new_packages = config.get(section, 'donwload_new_packages')
+else:
+    donwload_new_packages = "yes" 
+    
+
+
+os.chdir(wapt_dir)
+os.system('cd '+wapt_dir)
+
+urllib.urlretrieve(main_repo+"wapt-scanpackages.py", wapt_dir+'wapt-scanpackages.py')
+urllib.urlretrieve(main_repo+"waptpackage.py", wapt_dir+'waptpackage.py')
+os.system("/usr/bin/zsync  %s.zsync -o %s" % (main_repo+"waptsetup.exe", wapt_dir+"waptsetup.exe"))
+
+os.system('cd '+wapt_dir+'&& python wapt-scanpackages.py .')
+
+sys.path.append(wapt_dir)
 from waptpackage import PackageEntry
 
 packagesToUpgrade = []
@@ -84,60 +111,70 @@ def packagesFileToList(pathTofile):
     for line in listPackages.splitlines():
         # new package
         if line.strip()=='':
-          add_package(lines)
-          lines = []
-          # add ettribute to current package
+            add_package(lines)
+            lines = []
+            # add ettribute to current package
         else:
-          lines.append(line)
-	
+            lines.append(line)
+
     if lines:
-	    add_package(lines)
-	    lines = []
-    
+        add_package(lines)
+        lines = []
+
     return packages
 
 
 
 def downloadRepoPackages(mainRepo):
-   tempDir  =  tempfile.mkdtemp()
-   packagesTemp = tempDir+"/Packages"
-   urllib.urlretrieve(mainRepo+"Packages", packagesTemp)
-   packages =  packagesFileToList(packagesTemp)
-   if os.path.exists(tempDir):
-     shutil.rmtree(tempDir)
-   return packages 
+    tempDir  =  tempfile.mkdtemp()
+    packagesTemp = tempDir+"/Packages"
+    urllib.urlretrieve(mainRepo+"Packages", packagesTemp)
+    packages =  packagesFileToList(packagesTemp)
+    if os.path.exists(tempDir):
+        shutil.rmtree(tempDir)
+    return packages 
 
 
 def downloadPackages(packages):
-  for package in packages:
-    print "Downloading : %s version => %s" % ( package.package, package.version )
-    os.system("/usr/bin/zsync  %s.zsync -o %s" % (mainRepo+package.filename, waptDir+package.filename))
-   
+    for package in packages:
+        print "Downloading : %s version => %s" % ( package.package, package.version )
+        os.system("/usr/bin/zsync  %s.zsync -o %s" % (main_repo+package.filename, wapt_dir+package.filename))
 
 
-repoPackages = downloadRepoPackages(mainRepo)
-localPackages = packagesFileToList(waptDir+'Packages') 
+
+repoPackages = downloadRepoPackages(main_repo)
+localPackages = packagesFileToList(wapt_dir+'Packages') 
 
 for repoPackage in repoPackages:
+    if not repoPackage.section != "host":
+        continue
+        
     matchPackage = [ package for package in localPackages if repoPackage.package == package.package ]
+
     if len(matchPackage) == 1:
         if repoPackage > matchPackage[0]:
-        	packagesToUpgrade.append(repoPackage)
+            packagesToUpgrade.append(repoPackage)
     elif len(matchPackage) > 1: 
-	if not [ x for x in matchPackage if repoPackage.version in x.version ]:
-	  packagesToUpgrade.append(repoPackage)
-    elif donwloadNewPackages :
-	  newPackages.append(repoPackage)
+        if not [ x for x in matchPackage if repoPackage.version in x.version ]:
+            packagesToUpgrade.append(repoPackage)
+    elif donwload_new_packages.lower in [ "yes", "oui", "y", "o" ]:
+        newPackages.append(repoPackage)
     else:
         print "New package: "+repoPackage.package
 
 
 if packagesToUpgrade:
-  downloadPackages( packagesToUpgrade)
-else :
-  print "The system is already up to date"
+    downloadPackages( packagesToUpgrade)
+
 if newPackages:
-  downloadPackages(newPackages)
+    downloadPackages(newPackages)
+    
+if not (packagesToUpgrade or newPackages):
+    print "The system is already up to date"
 
 if packagesToUpgrade or newPackages:
-  os.system('cd '+waptDir+'&& python wapt-scanpackages.py .')
+    os.system('cd '+wapt_dir+'&& python wapt-scanpackages.py .')
+    
+    
+
+os.system('chmod 644 %s*'%wapt_dir)

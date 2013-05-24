@@ -298,7 +298,10 @@ def main():
                             if result.get('downloads', {'downloaded':[],'skipped':[],'errors':[]} )[k]:
                                 print u"\n=== %s packages ===\n%s" % (k,'\n'.join(["  %s" % (s,) for s in result['downloads'][k]]),)
                 if mywapt.wapt_server:
-                    mywapt.update_server_status()
+                    try:
+                        mywapt.update_server_status()
+                    except Exception,e:
+                        logger.critical('Unable to update server with current status : %s' % ensure_unicode(e))
 
 
             elif action=='download':
@@ -378,8 +381,13 @@ def main():
                 for packagename in args[1:]:
                     print u"Removing %s ..." % (packagename,)
                     result = mywapt.remove(packagename,force=options.force)
+
                     if mywapt.wapt_server:
-                        mywapt.update_server_status()
+                        try:
+                            mywapt.update_server_status()
+                        except Exception,e:
+                            logger.critical('Unable to update server with current status : %s' % ensure_unicode(e))
+
                     if options.json_output:
                         jsonresult['result'] = result
                         if not result['removed']:
@@ -456,7 +464,10 @@ def main():
                             if result[k]:
                                 print u"\n=== %s packages ===\n%s" % (k,'\n'.join( ["  %-30s | %s (%s)" % (s[0],s[1].package,s[1].version) for s in  result[k]]),)
                 if mywapt.wapt_server:
-                    mywapt.update_server_status()
+                    try:
+                        mywapt.update_server_status()
+                    except Exception,e:
+                        logger.critical('Unable to update server with current status : %s' % ensure_unicode(e))
                 sys.exit(0)
 
             elif action=='list-upgrade':

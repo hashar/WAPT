@@ -838,11 +838,11 @@ def memory_status():
     else:
         raise Exception('Error in function GlobalMemoryStatusEx')
 
-def dmidecode_dict(dmiout):
+def dmi_info():
     """Convert dmidecode -q output to python dict"""
-    dmi_info = {}
+    dmiout = run('dmidecode -q',shell=False)
     new_section = True
-
+    result = {}
     for l in dmiout.splitlines():
         if not l.strip() or l.startswith('#'):
             new_section = True
@@ -850,7 +850,7 @@ def dmidecode_dict(dmiout):
 
         if not l.startswith('\t') or new_section:
             currobject={}
-            dmi_info[l.strip()]=currobject
+            result[l.strip()]=currobject
             if l.startswith('\t'):
                 print l
         else:
@@ -867,24 +867,50 @@ def dmidecode_dict(dmiout):
                     currobject[name.strip()]=currarray
                 currarray.append(l.strip())
         new_section = False
+    return result
 
-    return dmi_info
+def wmi_info():
+    result = {}
+    import wmi
+    wm = wmi.WMI()
 
+    result['Win32_ComputerSystem'] = {}
+    cs = wm.Win32_ComputerSystem()[0]
+    for k in cs.properties.keys():
+        prop = cs.wmi_property(k)
+        if prop:
+            result['Win32_ComputerSystem'][k] = prop.Value
 
-def host_info(with_wmi=False):
+    result['Win32_ComputerSystemProduct'] = {}
+    cs = wm.Win32_ComputerSystemProduct()[0]
+    for k in cs.properties.keys():
+        prop = cs.wmi_property(k)
+        if prop:
+            result['Win32_ComputerSystemProduct'][k] = prop.Value
+
+    result['Win32_BIOS'] = {}
+    cs = wm.Win32_BIOS()[0]
+    for k in cs.properties.keys():
+        prop = cs.wmi_property(k)
+        if prop:
+            result['Win32_BIOS'][k] = prop.Value
+
+    na = result['Win32_NetworkAdapter'] = []
+    for cs in wm.Win32_NetworkAdapter():
+        na.append({})
+        for k in cs.properties.keys():
+            prop = cs.wmi_property(k)
+            if prop:
+                na[-1][k] = prop.Value
+    return result
+
+def host_info():
     info = {}
-    #dmiout = run(os.path.join(os.path.dirname(sys.argv[0]),'dmidecode'))
-    dmiout = run('dmidecode -q',shell=False)
-    dmi_info =  dmidecode_dict(dmiout)
-    info['dmi'] = dmi_info
+    info['description'] = registry_readstring(HKEY_LOCAL_MACHINE,r'SYSTEM\CurrentControlSet\services\LanmanServer\Parameters','srvcomment')
 
-    info['uuid'] = dmi_info.get('System Information',{}).get('UUID','')
-    if not info['uuid']:
-        info['uuid']=get_hostname()
-
-    info['serial_nr'] = dmi_info.get('System Information',{}).get('Serial Number','')
-    info['system_manufacturer'] = dmi_info.get('System Information',{}).get('Manufacturer','')
-    info['system_productname'] = dmi_info.get('System Information',{}).get('Product Name','')
+    #info['serial_nr'] = dmi_info.get('System Information',{}).get('Serial Number','')
+    info['system_manufacturer'] = registry_readstring(HKEY_LOCAL_MACHINE,r'HARDWARE\DESCRIPTION\System\BIOS','SystemManufacturer')
+    info['system_productname'] = registry_readstring(HKEY_LOCAL_MACHINE,r'HARDWARE\DESCRIPTION\System\BIOS','SystemProductName')
 
     info['computer_name'] =  wincomputername()
     info['computer_fqdn'] =  get_hostname()
@@ -896,57 +922,16 @@ def host_info(with_wmi=False):
     info['win64'] = iswin64()
     info['description'] = registry_readstring(HKEY_LOCAL_MACHINE,r'SYSTEM\CurrentControlSet\services\LanmanServer\Parameters','srvcomment')
 
-    info['registered_organization'] =  'to be filled'
-    info['registered_owner'] =  'to be filled'
+    info['registered_organization'] =  registry_readstring(HKEY_LOCAL_MACHINE,r'SOFTWARE\Microsoft\Windows NT\CurrentVersion','RegisteredOrganization')
+    info['registered_owner'] =  registry_readstring(HKEY_LOCAL_MACHINE,r'SOFTWARE\Microsoft\Windows NT\CurrentVersion','RegisteredOwner')
     win_info = keyfinder.windows_product_infos()
     info['windows_version'] =  platform.platform()
     info['windows_product_infos'] =  win_info
 
-    info['cpu_name'] = dmi_info.get('Processor Information',{}).get('Version','')
-    if not info['cpu_name']:
-        info['cpu_name'] = registry_readstring(HKEY_LOCAL_MACHINE,r'HARDWARE\DESCRIPTION\System\CentralProcessor\0','ProcessorNameString','')
+    info['cpu_name'] = registry_readstring(HKEY_LOCAL_MACHINE,r'HARDWARE\DESCRIPTION\System\CentralProcessor\0','ProcessorNameString','')
 
     info['physical_memory'] = memory_status().ullTotalPhys
     info['virtual_memory'] = memory_status().ullTotalVirtual
-
-
-    if with_wmi:
-        info['wmi'] = {}
-        try:
-            import wmi
-            wm = wmi.WMI()
-
-            info['wmi']['Win32_ComputerSystem'] = {}
-            cs = wm.Win32_ComputerSystem()[0]
-            for k in cs.properties.keys():
-                prop = cs.wmi_property(k)
-                if prop:
-                    info['wmi']['Win32_ComputerSystem'][k] = prop.Value
-
-            info['wmi']['Win32_ComputerSystemProduct'] = {}
-            cs = wm.Win32_ComputerSystemProduct()[0]
-            for k in cs.properties.keys():
-                prop = cs.wmi_property(k)
-                if prop:
-                    info['wmi']['Win32_ComputerSystemProduct'][k] = prop.Value
-
-            info['wmi']['Win32_BIOS'] = {}
-            cs = wm.Win32_BIOS()[0]
-            for k in cs.properties.keys():
-                prop = cs.wmi_property(k)
-                if prop:
-                    info['wmi']['Win32_BIOS'][k] = prop.Value
-
-            na = info['wmi']['Win32_NetworkAdapter'] = []
-            for cs in wm.Win32_NetworkAdapter():
-                na.append({})
-                for k in cs.properties.keys():
-                    prop = cs.wmi_property(k)
-                    if prop:
-                        na[-1][k] = prop.Value
-
-        except:
-            raise
 
     return info
 

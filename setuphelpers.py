@@ -824,28 +824,44 @@ def memory_status():
     else:
         raise Exception('Error in function GlobalMemoryStatusEx')
 
-def host_info(with_wmi=False):
-    info = {}
-    #dmiout = run(os.path.join(os.path.dirname(sys.argv[0]),'dmidecode'))
-    dmiout = run('dmidecode -q',shell=False)
+def dmidecode_dict(dmiout):
+    """Convert dmidecode -q output to python dict"""
     dmi_info = {}
+    new_section = True
+
     for l in dmiout.splitlines():
         if not l.strip() or l.startswith('#'):
+            new_section = True
             continue
-        if not l.startswith('\t'):
+
+        if not l.startswith('\t') or new_section:
             currobject={}
             dmi_info[l.strip()]=currobject
+            if l.startswith('\t'):
+                print l
         else:
             if not l.startswith('\t\t'):
                 currarray = []
-                (name,value)=l.split(':',1)
-                currobject[name.strip()]=value.strip()
+                if ':' in l:
+                    (name,value)=l.split(':',1)
+                    currobject[name.strip()]=value.strip()
+                else:
+                    print "Error in line : %s" % l
             else:
                 # first line of array
                 if not currarray:
                     currobject[name.strip()]=currarray
                 currarray.append(l.strip())
-    info['dmi'] = dmi_info
+        new_section = False
+
+    return dmi_info
+
+
+def host_info(with_wmi=False):
+    info = {}
+    #dmiout = run(os.path.join(os.path.dirname(sys.argv[0]),'dmidecode'))
+    dmiout = run('dmidecode -q',shell=False)
+    info['dmi'] = dmidecode_dict(dmiout)
 
     info['uuid'] = dmi_info.get('System Information',{}).get('UUID','')
     if not info['uuid']:
@@ -1196,6 +1212,8 @@ params = {}
 control = PackageEntry()
 
 if __name__=='__main__':
+
+    dmi =  dmidecode_dict(open('c:\\tmp\\dmi.out','r').read())
     print host_info()['serial_nr']
     print run_timed('dir c:',timeout=3)
     print run_timed('notepad',timeout=10)

@@ -22,7 +22,6 @@
 # -----------------------------------------------------------------------
 
 import os
-import subprocess
 import re
 import logging
 import datetime
@@ -76,7 +75,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.1.13"
+__version__ = "0.6.18"
 
 logger = logging.getLogger()
 
@@ -1615,19 +1614,23 @@ class WaptRepo(object):
 ######################"""
 class Wapt(object):
     """Global WAPT engine"""
-    def __init__(self,config=None,defaults=None):
+    def __init__(self,config=None,config_filename=None,defaults=None):
         """Initialize engine with a configParser instance (inifile) and other defaults in a dictionary
             Main properties are :
         """
         assert not config or isinstance(config,RawConfigParser)
         self.wapt_base_dir = os.path.dirname(sys.argv[0])
+        self.config_filename = config_filename
+        if not self.config_filename:
+            self.config_filename = os.path.join(self.wapt_base_dir,'wapt-get.ini')
+
         self.config = config
-        self.config_filename = os.path.join(self.wapt_base_dir,'wapt-get.ini')
-        # default config file
-        if not config:
-            config = RawConfigParser(defaults = defaults)
-            config.read(self.config_filename)
-        self._wapt_repourl = config.get('global','repo_url')
+        if not self.config:
+            # default config file
+            self.config = RawConfigParser(defaults = defaults)
+            self.config.read(self.config_filename)
+
+        self._wapt_repourl = self.config.get('global','repo_url')
         self.packagecachedir = os.path.join(self.wapt_base_dir,'cache')
         if not os.path.exists(self.packagecachedir):
             os.makedirs(self.packagecachedir)
@@ -1638,8 +1641,8 @@ class Wapt(object):
         self.usergroups = None
 
         # database init
-        if config.has_option('global','dbdir'):
-            self.dbdir =  config.get('global','dbdir')
+        if self.config.has_option('global','dbdir'):
+            self.dbdir =  self.config.get('global','dbdir')
         else:
             self.dbdir = os.path.join(self.wapt_base_dir,'db')
 
@@ -1648,60 +1651,60 @@ class Wapt(object):
         self.dbpath = os.path.join(self.dbdir,'waptdb.sqlite')
         self._waptdb = None
         #
-        if config.has_option('global','private_key'):
-            self.private_key = config.get('global','private_key')
+        if self.config.has_option('global','private_key'):
+            self.private_key = self.config.get('global','private_key')
         else:
             self.private_key = ''
 
-        if config.has_option('global','allow_unsigned'):
-            self.allow_unsigned = config.getboolean('global','allow_unsigned')
+        if self.config.has_option('global','allow_unsigned'):
+            self.allow_unsigned = self.config.getboolean('global','allow_unsigned')
         else:
             self.allow_unsigned = False
 
-        if config.has_option('global','upload_cmd'):
-            self.upload_cmd = config.get('global','upload_cmd')
+        if self.config.has_option('global','upload_cmd'):
+            self.upload_cmd = self.config.get('global','upload_cmd')
         else:
             self.upload_cmd = None
 
-        if config.has_option('global','after_upload'):
-            self.after_upload = config.get('global','after_upload')
+        if self.config.has_option('global','after_upload'):
+            self.after_upload = self.config.get('global','after_upload')
         else:
             self.after_upload = None
 
-        if config.has_option('global','http_proxy'):
-            self.proxies = {'http':config.get('global','http_proxy')}
+        if self.config.has_option('global','http_proxy'):
+            self.proxies = {'http':self.config.get('global','http_proxy')}
         else:
             self.proxies = None
 
         # windows task scheduling
-        if config.has_option('global','waptupdate_task_period'):
-            self.waptupdate_task_period = int(config.get('global','waptupdate_task_period'))
+        if self.config.has_option('global','waptupdate_task_period'):
+            self.waptupdate_task_period = int(self.config.get('global','waptupdate_task_period'))
         else:
             self.waptupdate_task_period = None
 
-        if config.has_option('global','waptupdate_task_maxruntime'):
-            self.waptupdate_task_maxruntime = int(config.get('global','waptupdate_task_maxruntime'))
+        if self.config.has_option('global','waptupdate_task_maxruntime'):
+            self.waptupdate_task_maxruntime = int(self.config.get('global','waptupdate_task_maxruntime'))
         else:
             self.waptupdate_task_maxruntime = 10
 
-        if config.has_option('global','waptupgrade_task_period'):
-            self.waptupgrade_task_period = int(config.get('global','waptupgrade_task_period'))
+        if self.config.has_option('global','waptupgrade_task_period'):
+            self.waptupgrade_task_period = int(self.config.get('global','waptupgrade_task_period'))
         else:
             self.waptupgrade_task_period = None
 
-        if config.has_option('global','waptupgrade_task_maxruntime'):
-            self.waptupgrade_task_maxruntime = int(config.get('global','waptupgrade_task_maxruntime'))
+        if self.config.has_option('global','waptupgrade_task_maxruntime'):
+            self.waptupgrade_task_maxruntime = int(self.config.get('global','waptupgrade_task_maxruntime'))
         else:
             self.waptupgrade_task_maxruntime = 180
 
 
-        if config.has_option('global','wapt_server'):
-            self.wapt_server = config.get('global','wapt_server')
+        if self.config.has_option('global','wapt_server'):
+            self.wapt_server = self.config.get('global','wapt_server')
         else:
             self.wapt_server = None
 
-        if config.has_option('global','language'):
-            self.language = config.get('global','language')
+        if self.config.has_option('global','language'):
+            self.language = self.config.get('global','language')
         else:
             self.language = None
 
@@ -1710,8 +1713,8 @@ class Wapt(object):
         # Stores the configuration of all repositories (url, public_cert...)
         self.repositories = []
         # secondary
-        if config.has_option('global','repositories'):
-            names = [n.strip() for n in config.get('global','repositories').split(',')]
+        if self.config.has_option('global','repositories'):
+            names = [n.strip() for n in self.config.get('global','repositories').split(',')]
             logger.info(u'Other repositories : %s' % (names,))
             for name in names:
                 if name:
@@ -1869,7 +1872,7 @@ class Wapt(object):
         # kill old wapt-get
         mindate = time.time() - max_ttl*60
 
-        # to keep the list of supposed killed
+        # to keep the list of supposedly killed wapt-get processes
         killed=[]
         for p in wapt_processes:
             if p.create_time < mindate:
@@ -2886,6 +2889,9 @@ class Wapt(object):
             os.chdir(previous_cwd)
 
     def build_upload(self,source_dir):
+        """Build a list of packages and upload the resulting packages to the main repository.
+           if section of package is group or host, user specific wapt-host or wapt-group
+        """
         print('Building  %s' % source_dir)
         result = self.buildpackage(source_dir)
         package_fn = result['filename']
@@ -3354,6 +3360,11 @@ def install():
             result['target'] = package_dev_dir
         result['package'] = dest_control
         return result
+
+    def check_waptupgrades(self):
+        if self.config.has_option('global','waptupgrade_url'):
+            upgradeurl = self.config.get('global','waptupgrade_url')
+        pass
 
     def setup_tasks(self):
         result = []

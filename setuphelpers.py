@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.4.17"
+__version__ = "0.6.18"
 
 import os
 import sys
@@ -29,9 +29,13 @@ import logging
 import tempfile
 import shutil
 
-import subprocess32 as subprocess
-from subprocess32 import Popen, PIPE
+# use backported subprocess from python 3.2
+#import subprocess32 as subprocess
+#from subprocess32 import Popen, PIPE
+
 import _subprocess
+import subprocess
+from subprocess import Popen, PIPE
 import psutil
 
 import win32api
@@ -60,11 +64,8 @@ import types
 import threading
 
 from waptpackage import PackageEntry
-
 from iniparse import RawConfigParser
-
 import keyfinder
-
 logger = logging.getLogger()
 
 # common windows diectories
@@ -364,6 +365,19 @@ class RunReader(threading.Thread):
             self.callable(*self.args, **self.kwargs)
         except Exception, e:
             print e
+
+class TimeoutExpired(Exception):
+    """This exception is raised when the timeout expires while waiting for a
+    child process.
+    """
+    def __init__(self, cmd, output=None, timeout=None):
+        self.cmd = cmd
+        self.output = output
+        self.timeout = timeout
+
+    def __str__(self):
+        return ("Command '%s' timed out after %s seconds with output '%s'" %
+                (self.cmd, self.timeout, self.output))
 
 def run(*cmd,**args):
     """Run the command cmd and return the output and error text

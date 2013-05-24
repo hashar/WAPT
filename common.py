@@ -2705,11 +2705,9 @@ class Wapt(object):
             logger.info(ensure_unicode(out))
 
         inv = self.inventory()
-        uuid = self.read_param('uuid')
-        if not uuid:
-            uuid = inv['host']['uuid']
-            self.write_param('uuid',uuid)
-        inv['uuid'] = uuid
+        # store uuid for future use to avoid the use of dmidecode
+        if not self.read_param('uuid'):
+            self.write_param('uuid',inv['uuid'])
         if force:
             inv['force']=True
         if self.wapt_server:

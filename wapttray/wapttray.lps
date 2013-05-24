@@ -9,12 +9,11 @@
         <Filename Value="wapttray.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="wapttray"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="11"/>
-        <CursorPos X="26" Y="35"/>
-        <UsageCount Value="33"/>
+        <TopLine Value="3"/>
+        <CursorPos X="6" Y="19"/>
+        <UsageCount Value="35"/>
         <Loaded Value="True"/>
       </Unit0>
       <Unit1>
@@ -27,7 +26,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="49" Y="8"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="35"/>
       </Unit1>
       <Unit2>
         <Filename Value="..\wapt-get\waptcommon.pas"/>
@@ -37,14 +36,14 @@
         <WindowIndex Value="0"/>
         <TopLine Value="70"/>
         <CursorPos X="43" Y="86"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="35"/>
         <Loaded Value="True"/>
       </Unit2>
       <Unit3>
         <Filename Value="..\wapt-get\soutils.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="soutils"/>
-        <UsageCount Value="31"/>
+        <UsageCount Value="33"/>
       </Unit3>
       <Unit4>
         <Filename Value="..\wapt-get\tiscommon.pas"/>
@@ -53,7 +52,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="20"/>
         <CursorPos X="11" Y="35"/>
-        <UsageCount Value="31"/>
+        <UsageCount Value="33"/>
       </Unit4>
       <Unit5>
         <Filename Value="udmwapttray.pas"/>
@@ -62,11 +61,12 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
         <UnitName Value="uDMWAPTTray"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="30"/>
-        <CursorPos X="67" Y="55"/>
-        <UsageCount Value="29"/>
+        <TopLine Value="90"/>
+        <CursorPos X="68" Y="118"/>
+        <UsageCount Value="31"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
       </Unit5>
@@ -314,123 +314,123 @@
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="48" Column="10" TopLine="24"/>
+        <Caret Line="88" Column="64" TopLine="63"/>
       </Position1>
       <Position2>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="60" Column="11" TopLine="35"/>
+        <Caret Line="140" Column="17" TopLine="114"/>
       </Position2>
       <Position3>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="62" Column="9" TopLine="37"/>
+        <Caret Line="167" Column="1" TopLine="150"/>
       </Position3>
       <Position4>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="75" Column="9" TopLine="50"/>
+        <Caret Line="111" Column="19" TopLine="96"/>
       </Position4>
       <Position5>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="78" Column="17" TopLine="52"/>
+        <Caret Line="102" Column="30" TopLine="87"/>
       </Position5>
       <Position6>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="88" Column="64" TopLine="63"/>
+        <Caret Line="111" Column="11" TopLine="87"/>
       </Position6>
       <Position7>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="140" Column="17" TopLine="114"/>
+        <Caret Line="111" Column="12" TopLine="87"/>
       </Position7>
       <Position8>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="167" Column="1" TopLine="150"/>
+        <Caret Line="71" Column="17" TopLine="56"/>
       </Position8>
       <Position9>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="111" Column="19" TopLine="96"/>
+        <Caret Line="111" Column="33" TopLine="96"/>
       </Position9>
       <Position10>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="102" Column="30" TopLine="87"/>
+        <Caret Line="117" Column="22" TopLine="102"/>
       </Position10>
       <Position11>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="111" Column="11" TopLine="87"/>
+        <Caret Line="195" Column="13" TopLine="141"/>
       </Position11>
       <Position12>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="111" Column="12" TopLine="87"/>
+        <Caret Line="195" Column="13" TopLine="141"/>
       </Position12>
       <Position13>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="71" Column="17" TopLine="56"/>
+        <Caret Line="1" Column="1" TopLine="1"/>
       </Position13>
       <Position14>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="111" Column="33" TopLine="96"/>
+        <Caret Line="116" Column="27" TopLine="94"/>
       </Position14>
       <Position15>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="117" Column="22" TopLine="102"/>
+        <Caret Line="126" Column="5" TopLine="124"/>
       </Position15>
       <Position16>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="195" Column="13" TopLine="141"/>
+        <Caret Line="135" Column="1" TopLine="121"/>
       </Position16>
       <Position17>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="195" Column="13" TopLine="141"/>
+        <Caret Line="113" Column="34" TopLine="100"/>
       </Position17>
       <Position18>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="1" Column="1" TopLine="1"/>
+        <Caret Line="99" Column="10" TopLine="82"/>
       </Position18>
       <Position19>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="116" Column="27" TopLine="94"/>
+        <Caret Line="55" Column="6" TopLine="31"/>
       </Position19>
       <Position20>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="126" Column="5" TopLine="124"/>
+        <Caret Line="88" Column="35" TopLine="73"/>
       </Position20>
       <Position21>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="135" Column="1" TopLine="121"/>
+        <Caret Line="55" Column="58" TopLine="30"/>
       </Position21>
       <Position22>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="113" Column="34" TopLine="100"/>
+        <Caret Line="186" Column="16" TopLine="171"/>
       </Position22>
       <Position23>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="99" Column="10" TopLine="82"/>
+        <Filename Value="..\wapt-get\waptcommon.pas"/>
+        <Caret Line="94" Column="6" TopLine="73"/>
       </Position23>
       <Position24>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="55" Column="6" TopLine="31"/>
+        <Filename Value="wapttray.lpr"/>
+        <Caret Line="31" Column="8" TopLine="11"/>
       </Position24>
       <Position25>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="88" Column="35" TopLine="73"/>
+        <Filename Value="wapttray.lpr"/>
+        <Caret Line="29" Column="40" TopLine="11"/>
       </Position25>
       <Position26>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="55" Column="58" TopLine="30"/>
+        <Caret Line="55" Column="67" TopLine="30"/>
       </Position26>
       <Position27>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="186" Column="16" TopLine="171"/>
+        <Caret Line="115" Column="66" TopLine="77"/>
       </Position27>
       <Position28>
-        <Filename Value="..\wapt-get\waptcommon.pas"/>
-        <Caret Line="94" Column="6" TopLine="73"/>
+        <Filename Value="udmwapttray.pas"/>
+        <Caret Line="92" Column="39" TopLine="73"/>
       </Position28>
       <Position29>
-        <Filename Value="wapttray.lpr"/>
-        <Caret Line="31" Column="8" TopLine="11"/>
+        <Filename Value="udmwapttray.pas"/>
+        <Caret Line="94" Column="21" TopLine="73"/>
       </Position29>
       <Position30>
-        <Filename Value="wapttray.lpr"/>
-        <Caret Line="29" Column="40" TopLine="11"/>
+        <Filename Value="udmwapttray.pas"/>
+        <Caret Line="108" Column="1" TopLine="84"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>

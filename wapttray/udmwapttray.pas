@@ -68,6 +68,7 @@ type
       icon_idx:integer;
       previousupgrades:String;
       DMTray:TDMWaptTray;
+      running : ISuperObject;
       procedure Execute; override;
       procedure SetTrayStatus;
   end;
@@ -88,6 +89,7 @@ begin
       new_updates := httpGetString('http://localhost:8088/checkupgrades');
       sob := SO(new_updates);
       new_upgrades := sob.S['upgrades'];
+      running := sob['running_tasks'];
       if new_upgrades<>'[]' then
       begin
         animate:=True;
@@ -95,8 +97,16 @@ begin
       end
       else
       begin
-        new_hint:='Système à jour';
-        icon_idx:=0;
+        if running.AsArray.Length>0 then
+        begin
+          new_hint:='Installation en cours : '+running.AsString;
+          icon_idx:=1;
+        end
+        else
+        begin
+          new_hint:='Système à jour';
+          icon_idx:=0;
+        end
       end;
 
       if new_upgrades<>previousupgrades then
@@ -104,7 +114,10 @@ begin
         if new_upgrades<>'[]' then
           new_ballon:='Nouvelles mises à jour disponibles'
         else
-          new_ballon:='Système à jour';
+          if running.AsArray.Length>0 then
+            new_ballon:='Installation en cours : '+running.AsString
+          else
+            new_ballon:='Système à jour';
 
         previousupgrades:=new_upgrades;
       end;

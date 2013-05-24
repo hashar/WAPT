@@ -2875,7 +2875,7 @@ class Wapt(object):
                 source_root = directoryname,
                 target_root = '' ,
                 excludes=excludes)
-            return {'filename':result_filename,'files':allfiles}
+            return {'filename':result_filename,'files':allfiles,'package':entry}
         finally:
             if 'setup' in dir():
                 del setup

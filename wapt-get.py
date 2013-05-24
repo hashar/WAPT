@@ -561,7 +561,7 @@ def main():
                         if package_fn:
                             targets.append(package_fn)
                             if not options.json_output:
-                                print u"Package content:"
+                                print u"Package %s content:" % (result ['package'].asrequirement(),)
                                 for f in result['files']:
                                     print u" %s" % f[0]
                             print('...done. Package filename %s' % (package_fn,))
@@ -597,14 +597,16 @@ def main():
                         sys.exit(1)
 
                 # continue with upload
-                print 'Uploading files...'
-                if mywapt.upload_cmd and 'build-upload':
+                if mywapt.upload_cmd and action == 'build-upload':
+                    print 'Uploading files...'
                     print setuphelpers.run(mywapt.upload_cmd % {'waptfile': ' '.join(targets)})
                     if mywapt.after_upload:
                         print 'Run after upload script...'
                         print setuphelpers.run(mywapt.after_upload % {'waptfile': ' '.join(targets) })
                     else:
-                        print u'\nYou can upload to repository with\n  %s upload-package %s ' % (sys.argv[0],'"%s"' % (' '.join(targets),) )
+                        print "Don't forget to update Packages index on repository !"
+                else:
+                    print u'\nYou can upload to repository with\n  %s upload-package %s ' % (sys.argv[0],'"%s"' % (' '.join(targets),) )
 
             elif action=='sign-package':
                 if len(args)<2:

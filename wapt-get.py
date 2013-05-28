@@ -454,6 +454,7 @@ def main():
                 if running_install:
                     raise Exception('Running wapt-get in progress, please wait...')
                 result = mywapt.upgrade()
+
                 if options.json_output:
                     jsonresult['result'] = result
                 else:
@@ -739,6 +740,7 @@ def main():
         raise
 
     finally:
+        mywapt.runstatus=''
         if options.json_output:
             # restore stdin/stdout
             sys.stdout = old_stdout
@@ -751,3 +753,4 @@ def main():
 if __name__ == "__main__":
     logger.debug(u'Python path %s' % sys.path)
     main()
+

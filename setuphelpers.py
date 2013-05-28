@@ -170,7 +170,7 @@ def wgets(url,proxies=None):
 
 last_time_display = 0
 
-def wget(url,target,reporthook=None,proxies=None):
+def wget(url,target,reporthook=None,printhook=None,proxies=None):
     """Copy the contents of a file from a given URL
     to a local file.
     """
@@ -179,7 +179,12 @@ def wget(url,target,reporthook=None,proxies=None):
         if total>1 and bsize>1:
             # print only every second or at end
             if (time.time()-last_time_display>=1) or (bcount*bsize>=total) :
-                print u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (bcount*bsize,total,100.0*bcount*bsize/total, bsize/(1024*(time.time()-last_time_display))),
+                received = bcount*bsize
+                speed = bsize/(1024*(time.time()-last_time_display))
+                if printhook:
+                    printhook(received,total,speed)
+                else:
+                    print u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total,speed ),
                 last_time_display = time.time()
 
     if os.path.isdir(target):
@@ -384,15 +389,20 @@ def run(*cmd,**args):
         shell=True is assumed
         timeout=600 (seconds) after that time, a TimeoutExpired is raised
         if return code of cmd is non zero, a CalledProcessError is raised
+        on_write : called when a new line is printed on stdout or stderr by the subprocess
     """
     logger.info(u'Run "%s"' % (cmd,))
     output = []
-    def worker(pipe):
+    def worker(pipe,on_write=None):
         while True:
             line = pipe.readline()
             if line == '':
                 break
             else:
+                if on_write:
+                    on_write(line)
+                else:
+                    print line,
                 output.append(line)
 
     if 'timeout' in args:
@@ -404,10 +414,10 @@ def run(*cmd,**args):
     if not "shell" in args:
         args['shell']=True
 
-    proc = psutil.Popen(*cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,**args)
+    proc = psutil.Popen(*cmd, bufsize=1, stdout=PIPE, stderr=PIPE,**args)
 
-    stdout_worker = RunReader(worker, proc.stdout)
-    stderr_worker = RunReader(worker, proc.stderr)
+    stdout_worker = RunReader(worker, proc.stdout,args.get('on_write',None))
+    stderr_worker = RunReader(worker, proc.stderr,args.get('on_write',None))
     stdout_worker.start()
     stderr_worker.start()
     stdout_worker.join(timeout)
@@ -918,7 +928,7 @@ def host_info():
     info['workgroup_name'] = windomainname()
     info['networking'] = networking()
     info['connected_ips'] = socket.gethostbyname_ex(socket.gethostname())[2]
-    info['mac'] = [ c['mac'] for c in networking() if 'mac' in c]
+    info['mac'] = [ c['mac'] for c in networking() if 'mac' in c and c['addr'] in info['connected_ips']]
     info['win64'] = iswin64()
     info['description'] = registry_readstring(HKEY_LOCAL_MACHINE,r'SYSTEM\CurrentControlSet\services\LanmanServer\Parameters','srvcomment')
 

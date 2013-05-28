@@ -401,8 +401,6 @@ def run(*cmd,**args):
             else:
                 if on_write:
                     on_write(line)
-                else:
-                    print line,
                 output.append(line)
 
     if 'timeout' in args:
@@ -424,11 +422,11 @@ def run(*cmd,**args):
     if stdout_worker.is_alive():
         # kill the task and all subtasks
         killtree(proc.pid)
-        raise subprocess.TimeoutExpired(cmd,timeout,''.join(output))
+        raise TimeoutExpired(cmd,timeout,''.join(output))
     stderr_worker.join(timeout)
     if stderr_worker.is_alive():
         proc.kill()
-        raise subprocess.TimeoutExpired(cmd,timeout,''.join(output))
+        raise TimeoutExpired(cmd,timeout,''.join(output))
     proc.returncode = _subprocess.GetExitCodeProcess(proc._handle)
     if proc.returncode<>0:
         raise subprocess.CalledProcessError(proc.returncode,cmd,''.join(output))

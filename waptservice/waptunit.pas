@@ -54,6 +54,10 @@ type
     function RepoTableHook(Dataset: TDataset; Data, FN: Utf8String): Utf8String;
     function StatusTableHook(Dataset: TDataset; Data, FN: Utf8String): Utf8String;
     function RegisterComputer:Boolean;
+
+    function WaptRunstatus:ISuperObject;
+
+
   public
     { public declarations }
     BaseDir : String;
@@ -491,12 +495,17 @@ begin
       AResponseInfo.ContentText:= '<h2>Output</h2>'+CmdOutput;
     end
     else
+    if ARequestInfo.URI='/runstatus' then
+    begin
+      AResponseInfo.ContentType:='application/json';
+      AResponseInfo.ContentText:= WaptRunstatus.AsJSon;
+    end
+    else
     if ARequestInfo.URI='/checkupgrades' then
     try
       AQuery := WaptDB.QueryCreate('select * from wapt_params where name="last_update_status"');
       AQuery.Open;
       AResponseInfo.ContentType:='application/json';
-      //AResponseInfo.ContentText:= Dataset2SO(AQuery).AsJson;
       AResponseInfo.ContentText:= AQuery.FieldByName('value').AsString;
     finally
       AQuery.Free;
@@ -620,7 +629,8 @@ begin
         '<h1>'+GetComputerName+' - System status</h1>'+
         'WAPT Server URL: '+GetWaptServerURL+'<br>'+
         'wapt-get version: '+GetApplicationVersion(WaptgetPath)+'<br>'+
-        'waptservice version: '+GetApplicationVersion(WaptservicePath)+'<br>'+
+        'waptservice version: '+GetApplicationVersion(WaptservicePath)+'<br>'+'<br>'+
+        'Current status: '+WaptRunstatus.S['value']+'<br>'+
         'User : '+GetUserName+'<br>'+
         'Machine: '+GetComputerName+'<br>'+
         'Workgroup: '+ GetWorkGroupName+'<br>'+
@@ -706,6 +716,18 @@ begin
   //httpPostData();
 end;
 
+function TWaptDaemon.WaptRunstatus: ISuperObject;
+var
+  AQuery: TSQLQuery;
+begin
+  try
+    AQuery := WaptDB.QueryCreate('select value,create_date from wapt_params where name=''runstatus''');
+    Result := Dataset2SO(AQuery,False);
+  finally
+    AQuery.Free;
+    WaptDB.db.Close;
+  end
+end;
 
 function TWaptDaemon.GetWaptDB: TWAPTDB;
 begin

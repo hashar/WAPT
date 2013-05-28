@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.6.18"
+__version__ = "0.6.19"
 
 import sys
 import os
@@ -740,7 +740,6 @@ def main():
         raise
 
     finally:
-        mywapt.runstatus=''
         if options.json_output:
             # restore stdin/stdout
             sys.stdout = old_stdout

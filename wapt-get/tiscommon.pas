@@ -33,6 +33,7 @@ uses
 Function  Wget(const fileURL, DestFileName: Utf8String): boolean;
 Function  Wget_try(const fileURL: Utf8String): boolean;
 function  httpGetString(url: string): Utf8String;
+procedure httpGetNull(url: string);
 
 procedure httpPostData(const UserAgent: string; const Server: string; const Resource: string; const Data: AnsiString);
 
@@ -271,6 +272,37 @@ begin
   else
   begin
      raise Exception.Create('Unable to download: "'+URL+'", connection refused');
+  end;
+end;
+
+// just launches a process with http request
+procedure httpGetNull(url: string);
+var
+  GlobalhInet,hFile: HINTERNET;
+  localFile: File;
+  buffer: array[1..1024] of byte;
+  bytesRead: DWORD;
+  pos:integer;
+  dwindex,dwcodelen,dwread,dwNumber: cardinal;
+  dwcode : array[1..20] of char;
+  res    : pchar;
+
+begin
+  //if not Assigned(GlobalhInet) then
+    GlobalhInet := InternetOpen('wapt',
+      INTERNET_OPEN_TYPE_PRECONFIG,nil,nil,0);
+  hFile := InternetOpenURL(GlobalhInet,PChar(url),nil,0,
+    INTERNET_FLAG_IGNORE_CERT_CN_INVALID or INTERNET_FLAG_NO_CACHE_WRITE
+    or INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_RELOAD ,0);
+  if Assigned(hFile) then
+  try
+    // nothing...
+  finally
+    InternetCloseHandle(hFile);
+  end
+  else
+  begin
+     raise Exception.Create('Unable to launch: "'+URL+'", connection refused');
   end;
 end;
 

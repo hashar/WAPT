@@ -2629,6 +2629,7 @@ class Wapt(object):
                     raise Exception('  uninstall key not registered in local DB status, unable to remove properly. Please remove manually')
 
         self.store_upgrade_status()
+        self.runstatus=''
         return result
 
     def host_packagename(self):

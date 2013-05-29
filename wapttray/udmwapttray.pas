@@ -191,7 +191,7 @@ end;
 
 procedure TDMWaptTray.ActUpgradeExecute(Sender: TObject);
 begin
-  httpGetNull( 'http://localhost:8088/upgrade');
+  httpGetString( 'http://localhost:8088/upgrade');
 end;
 
 procedure TDMWaptTray.DataModuleCreate(Sender: TObject);

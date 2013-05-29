@@ -82,6 +82,7 @@ type
     TabSheet3: TTabSheet;
     TabSheet4: TTabSheet;
     pgEditPackage: TTabSheet;
+    pgInventory: TTabSheet;
     testedit: TSynEdit;
     tvjson: TVirtualJSONInspector;
     tvjson1: TVirtualJSONInspector;
@@ -226,7 +227,6 @@ var
   i:integer;
   sop : ISuperObject;
 begin
-  sop := SO(['hh','ll','oo']);
   sop := Split(PackageEdited.S['depends'],',');
   for i:=0 to lstDepends.Items.Count-1 do
   begin

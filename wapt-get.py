@@ -256,7 +256,7 @@ def main():
             try:
                 params_dict = json.loads(options.params.replace("'",'"'))
             except:
-                raise Exception('Install Parameters must be in json format')
+                raise Exception('Installation Parameters must be in json format')
 
             # cleanup environement, remove stalled wapt-get, update install_status
             running_install = mywapt.check_install_running(max_ttl=options.max_ttl)
@@ -333,7 +333,7 @@ def main():
                     result.append[PackageEntry().load_control_from_wapt(args[1])]
                 else:
                     if options.update_packages:
-                        print u"Update package list"
+                        print u"Update packages list"
                         mywapt.update()
                     for packagename in args[1:]:
                         result.extend(mywapt.waptdb.packages_matching(packagename))
@@ -448,7 +448,7 @@ def main():
 
             elif action=='upgrade':
                 if options.update_packages:
-                    print u"Update package list"
+                    print u"Update packages list"
                     mywapt.update()
                 # abort if there is already a running install in progress
                 if running_install:
@@ -485,7 +485,7 @@ def main():
 
             elif action=='download-upgrade':
                 if options.update_packages:
-                    print u"Update package list"
+                    print u"Update packages list"
                     mywapt.update()
                 result = mywapt.download_upgrades()
                 if options.json_output:

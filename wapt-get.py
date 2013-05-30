@@ -94,6 +94,7 @@ action is either :
   build-upload <directory> : creates a WAPT package from supplied directory, sign it and upload it
   duplicate <directory or package> [<new-package-name> [<new-version> [<target directory>]]]: duplicate an existing package,
                                             changing its name (can be used for duplication of host packages...)
+  edit <package> : download an unzip a package. Open in Explorer the target directory
 
  For repository management
   upload-package  <filenames> : upload package to repository (using winscp for example.)

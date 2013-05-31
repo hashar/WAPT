@@ -811,6 +811,8 @@ def networking():
     """return a list of (iface,mac,{addr,broadcast,netmask})"""
     import netifaces
     ifaces = netifaces.interfaces()
+    local_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+
     res = []
     for i in ifaces:
         params = netifaces.ifaddresses(i)
@@ -818,6 +820,7 @@ def networking():
             iface = {'iface':i,'mac':params[netifaces.AF_LINK][0]['addr']}
             if netifaces.AF_INET in params:
                 iface.update(params[netifaces.AF_INET][0])
+                iface['connected'] = 'addr' in iface and iface['addr'] in local_ips
             res.append( iface )
     return res
 
@@ -929,7 +932,7 @@ def host_info():
     info['workgroup_name'] = windomainname()
     info['networking'] = networking()
     info['connected_ips'] = socket.gethostbyname_ex(socket.gethostname())[2]
-    info['mac'] = [ c['mac'] for c in networking() if 'mac' in c and c['addr'] in info['connected_ips']]
+    info['mac'] = [ c['mac'] for c in networking() if 'mac' in c and 'addr' in c and c['addr'] in info['connected_ips']]
     info['win64'] = iswin64()
     info['description'] = registry_readstring(HKEY_LOCAL_MACHINE,r'SYSTEM\CurrentControlSet\services\LanmanServer\Parameters','srvcomment')
 

@@ -6,10 +6,10 @@ interface
 
 uses
   Classes, SysUtils, memds, BufDataset, FileUtil, SynHighlighterPython, SynEdit,
-  SynMemo, vte_edittree, vte_json, LSControls, Forms, Controls, Graphics,
-  Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus, EditBtn,
-  AtomPythonEngine, PythonGUIInputOutput, process, fpJson, jsonparser,
-  superobject;
+  SynMemo, vte_edittree, vte_json, LSControls, Forms,
+  Controls, Graphics, Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus,
+  EditBtn, AtomPythonEngine, PythonGUIInputOutput, process, fpJson, jsonparser,
+  superobject, UniqueInstance, VirtualTrees;
 
 type
 
@@ -40,6 +40,9 @@ type
     Button4: TButton;
     Button5: TButton;
     cbShowLog: TCheckBox;
+    CheckBox1: TCheckBox;
+    CheckBox2: TCheckBox;
+    Edit1: TEdit;
     EdSection: TComboBox;
     Eddescription: TEdit;
     EdSearch1: TEdit;
@@ -48,10 +51,12 @@ type
     EdVersion: TEdit;
     EdRun: TEdit;
     EdSearch: TEdit;
+    GridHosts: TVirtualJSONListView;
     Label1: TLabel;
     Label2: TLabel;
     Label3: TLabel;
     Label4: TLabel;
+    Label5: TLabel;
     lstPackages: TListView;
     lstDepends: TListView;
     lstPackages1: TListView;
@@ -61,7 +66,9 @@ type
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
     PageControl1: TPageControl;
+    PageControl2: TPageControl;
     Panel1: TPanel;
+    Panel10: TPanel;
     Panel2: TPanel;
     Panel3: TPanel;
     Panel4: TPanel;
@@ -83,10 +90,17 @@ type
     TabSheet4: TTabSheet;
     pgEditPackage: TTabSheet;
     pgInventory: TTabSheet;
+    pgPackages: TTabSheet;
+    pgSoftwares: TTabSheet;
+    pgHostPackage: TTabSheet;
     testedit: TSynEdit;
     tvjson: TVirtualJSONInspector;
     tvjson1: TVirtualJSONInspector;
     jsonlog: TVirtualJSONInspector;
+    UniqueInstance1: TUniqueInstance;
+    VirtualJSONListView1: TVirtualJSONListView;
+    VirtualJSONListView2: TVirtualJSONListView;
+    VirtualJSONListView3: TVirtualJSONListView;
     procedure ActBuildUploadExecute(Sender: TObject);
     procedure ActEditpackageExecute(Sender: TObject);
     procedure ActEditRemoveExecute(Sender: TObject);
@@ -105,16 +119,28 @@ type
     procedure EdSearchKeyPress(Sender: TObject; var Key: char);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure GridHostsChange(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure lstDependsDragDrop(Sender, Source: TObject; X, Y: Integer);
     procedure lstDependsDragOver(Sender, Source: TObject; X, Y: Integer;
       State: TDragState; var Accept: Boolean);
+    procedure VirtualJSONListView1Edited(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex);
+    procedure VirtualJSONListView1InitNode(Sender: TBaseVirtualTree;
+      ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates
+      );
+    procedure VirtualJSONListView1KeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure VirtualJSONListView1NewText(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex; const NewText: String);
   private
     { private declarations }
     function RunJSON(expr:UTF8String;jsonView:TVirtualJSONInspector=Nil):ISuperObject;
+    procedure EditPackage(PackageEntry:ISuperObject);
   public
     { public declarations }
     jsondata:TJSONData;
     PackageEdited:ISuperObject;
+    waptpath:String;
     procedure LoadJson(data:UTF8String);
   end;
 
@@ -122,7 +148,7 @@ var
   VisWaptGUI: TVisWaptGUI;
 
 implementation
-uses LCLIntf,soutils;
+uses LCLIntf,soutils,waptcommon;
 {$R *.lfm}
 
 { TVisWaptGUI }
@@ -181,11 +207,24 @@ procedure TVisWaptGUI.ActInstallExecute(Sender: TObject);
 var
   expr,res:String;
   package:String;
+  i:integer;
+  N : PVirtualNode;
 begin
   if lstPackages.Focused then
   begin
     package := lstPackages.Selected.Caption+' (='+lstPackages.Selected.SubItems[1]+')';
     RunJSON(format('mywapt.install("%s")',[package]),jsonlog);
+    ActSearchPackage.Execute;
+  end
+  else
+  begin
+    N := VirtualJSONListView1.GetFirstSelected;
+    while N<>Nil do
+    begin
+      package := VirtualJSONListView1.Text[N,0]+' (='+VirtualJSONListView1.Text[N,2]+')';
+      RunJSON(format('mywapt.install("%s")',[package]),jsonlog);
+      N := VirtualJSONListView1.GetNextSelected(N);
+    end;
     ActSearchPackage.Execute;
   end;
 end;
@@ -203,36 +242,45 @@ begin
     result := RunJSON(format('mywapt.edit_package("%s")',[package]),jsonlog);
     {if DirectoryExists(result.S['target']) then
       OpenDocument(Format('%s\WAPT\control',[result.S['target']]));}
-    EdSourceDir.Text:=result.S['target'];
-    PackageEdited := result['package'];
-    EdPackage.Text:=PackageEdited.S['package'];
-    EdVersion.Text:=PackageEdited.S['version'];
-    EdDescription.Text:=PackageEdited.S['description'];
-    EdSection.Text:=PackageEdited.S['section'];
-    lstDepends.Clear;
-    depends := PackageEdited.S['depends'];
-    while depends<>'' do
-    begin
-      dep := StrToken(depends,',');
-      item := lstDepends.Items.Add;
-      item.Caption:=dep;
+    EditPackage(result);
+  end;
+end;
 
-    end;
-    PageControl1.ActivePage := pgEditPackage;
+procedure TVisWaptGUI.EditPackage(PackageEntry:ISuperObject);
+var
+  depends,dep:String;
+  result:ISuperObject;
+  item : TListItem;
+begin
+  PackageEdited := PackageEntry;
+  EdSourceDir.Text:=PackageEdited.S['target'];
+  EdPackage.Text:=PackageEdited.S['package'];
+  EdVersion.Text:=PackageEdited.S['version'];
+  EdDescription.Text:=PackageEdited.S['description'];
+  EdSection.Text:=PackageEdited.S['section'];
+  lstDepends.Clear;
+  depends := PackageEdited.S['depends'];
+  while depends<>'' do
+  begin
+    dep := StrToken(depends,',');
+    item := lstDepends.Items.Add;
+    item.Caption:=dep;
   end;
 end;
 
 procedure TVisWaptGUI.ActEditRemoveExecute(Sender: TObject);
 var
   i:integer;
-  sop : ISuperObject;
+  oldepends,newdepends : ISuperObject;
 begin
-  sop := Split(PackageEdited.S['depends'],',');
+  oldepends := Split(PackageEdited.S['depends'],',');
+  newdepends := TSuperObject.Create(stArray);
   for i:=0 to lstDepends.Items.Count-1 do
-  begin
-    if lstDepends.Items[i].Selected then
-
-  end;
+    if not lstDepends.Items[i].Selected then
+      newdepends.AsArray.Add(lstDepends.Items[i].Caption);
+  PackageEdited.S['depends'] := Join(',',newdepends);
+  ActEditSavePackage.Execute;
+  EditPackage(PackageEdited);
 end;
 
 procedure TVisWaptGUI.ActEditSavePackageExecute(Sender: TObject);
@@ -343,12 +391,18 @@ var
   expr,res:UTF8String;
   packages,package:ISuperObject;
   item : TListItem;
+  jsp : TJSONParser;
 begin
   lstPackages.Clear;
   expr := format('mywapt.search("%s".split())',[EdSearch.Text]);
   packages := RunJSON(expr);
   if packages<>Nil then
   try
+    jsp := TJSONParser.Create(packages.AsJSon);
+    VirtualJSONListView1.Data := jsp.Parse;
+    VirtualJSONListView1.LoadData;
+    VirtualJSONListView1.Header.AutoFitColumns;
+    jsp.Free;
     lstPackages.BeginUpdate;
     if packages.DataType = stArray then
     begin
@@ -407,12 +461,20 @@ begin
   lstDepends.Clear;
   lstPackages1.Clear;
 
+  waptpath := ExtractFileDir(paramstr(0));
+
 end;
 
 procedure TVisWaptGUI.FormDestroy(Sender: TObject);
 begin
   if Assigned(jsondata) then
     FreeAndNil(jsondata);
+end;
+
+procedure TVisWaptGUI.GridHostsChange(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+begin
+
 end;
 
 procedure TVisWaptGUI.lstDependsDragDrop(Sender, Source: TObject; X, Y: Integer
@@ -443,6 +505,30 @@ procedure TVisWaptGUI.lstDependsDragOver(Sender, Source: TObject; X,
   Y: Integer; State: TDragState; var Accept: Boolean);
 begin
   Accept := Source = lstPackages1;
+end;
+
+procedure TVisWaptGUI.VirtualJSONListView1Edited(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex);
+begin
+
+end;
+
+procedure TVisWaptGUI.VirtualJSONListView1InitNode(Sender: TBaseVirtualTree;
+  ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
+begin
+  //InitialStates:=InitialStates + [vsMultiline];
+end;
+
+procedure TVisWaptGUI.VirtualJSONListView1KeyDown(Sender: TObject;
+  var Key: Word; Shift: TShiftState);
+begin
+  //VirtualJSONListView1.EditNode(VirtualJSONListView1.FocusedNode,VirtualJSONListView1.FocusedColumn);
+end;
+
+procedure TVisWaptGUI.VirtualJSONListView1NewText(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; const NewText: String);
+begin
+
 end;
 
 procedure TVisWaptGUI.LoadJson(data: UTF8String);

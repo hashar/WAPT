@@ -2865,6 +2865,28 @@ class Wapt(object):
                     logger.critical(u'package %s not created' % package_fn)
             else:
                 logger.critical(u'Directory %s not found' % source_dir)
+
+        print 'Uploading files...'
+        # groups by www target : wapt or wapt-host
+        hosts = ('wapt-host',[])
+        others = ('wapt',[])
+        # split by destination
+        for p in result:
+            if p['package'].section == 'host':
+                hosts[1].append(p['filename'])
+            else:
+                others[1].append(p['filename'])
+        for package_group in (hosts,others):
+            if package_group[1]:
+                cmd_dict =  {'waptfile': ' '.join(package_group[1]),'waptdir':package_group[0]}
+                print setuphelpers.run(self.upload_cmd % cmd_dict)
+                if package_group<>hosts:
+                    if self.after_upload:
+                        print 'Run after upload script...'
+                        print setuphelpers.run(self.after_upload % cmd_dict)
+                    else:
+                        print "Don't forget to update Packages index on repository !"
+
         return result
 
     def session_setup(self,packagename,params_dict={}):

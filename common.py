@@ -75,7 +75,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.6.19"
+__version__ = "0.6.20"
 
 logger = logging.getLogger()
 
@@ -1444,7 +1444,7 @@ class WaptDB(object):
             for repo in repos_list:
                 logger.info(u'Getting packages from %s' % repo.repo_url)
                 try:
-                    self.update_packages_list(repo.repo_url,repo.name,proxies=proxies,force=force)
+                    repo.update_db(proxies=proxies,force=force)
                 except Exception,e:
                     logger.critical(u'Error getting packages from %s : %s' % (repo.repo_url,ensure_unicode(e)))
             logger.debug(u'Commit wapt_package updates')
@@ -1453,65 +1453,6 @@ class WaptDB(object):
             self.db.rollback()
             raise
 
-    def update_packages_list(self,repourl,repo_name=None,proxies=None,force=False):
-        """Get Packages from http repo and update local package database
-            return last-update header"""
-        try:
-            result = None
-            packages_url = repourl + '/Packages'
-            # Check if updated
-            if not force:
-                last_update = self.get_param('last-%s' % repourl[:59])
-                if last_update:
-                    logger.debug(u'Check last-modified header for %s to avoid unecessary update' % (packages_url,))
-                    current_update = requests.head(packages_url,proxies=proxies).headers['last-modified']
-                    if current_update == last_update:
-                        logger.info(u'Index from %s has not been updated (last update %s), skipping update' % (packages_url,last_update))
-                        return current_update
-
-            logger.debug(u'Read remote Packages zip file %s' % packages_url)
-            packages_answer = requests.get(packages_url,proxies=proxies)
-            packages_answer.raise_for_status
-
-            # Packages file is a zipfile with one Packages file inside
-            packageListFile = codecs.decode(ZipFile2(
-                  StringIO.StringIO(packages_answer.content)
-                ).read(name='Packages'),'UTF-8').splitlines()
-
-            logger.debug(u'Purge packages table')
-            self.db.execute('delete from wapt_package where repo_url=?',(repourl,))
-            startline = 0
-            endline = 0
-            def add(start,end):
-                if start <> end:
-                    package = PackageEntry()
-                    package.load_control_from_wapt(packageListFile[start:end])
-                    logger.info(u"%s (%s)" % (package.package,package.version))
-                    package.repo_url = repourl
-                    package.repo = repo_name
-                    self.add_package_entry(package)
-
-            for line in packageListFile:
-                if line.strip()=='':
-                    add(startline,endline)
-                    endline += 1
-                    startline = endline
-                # add ettribute to current package
-                else:
-                    endline += 1
-            # last one
-            add(startline,endline)
-
-            logger.debug(u'Commit wapt_package updates')
-            self.db.commit()
-            current_update = packages_answer.headers['last-modified']
-            logger.debug(u'Storing last-modified header for repourl %s : %s' % (repourl,current_update))
-            self.set_param('last-%s' % repourl[:59],current_update)
-            return current_update
-        except:
-            logger.debug(u'rollback delete package')
-            self.db.rollback()
-            raise
 
     def build_depends(self,packages):
         """Given a list of packages conditions (packagename (optionalcondition))
@@ -1597,19 +1538,117 @@ class WaptDB(object):
         return result
 
 
-
 class WaptRepo(object):
-    def __init__(self,name='',url='',certfilename=''):
+    def __init__(self,waptdb,name='',url='',certfilename=''):
         self.name = name
         self.repo_url = url
         self.public_cert = certfilename
+        self.waptdb = waptdb
 
-    def from_inifile(self,config,section=''):
+    def load_config(self,config,section=''):
         if section:
             self.name = section
         self.repo_url = config.get(self.name,'repo_url')
         self.public_cert = config.get(self.name,'public_cert')
         return self
+
+    def update_db(self,force=False,proxies=None):
+        """Get Packages from http repo and update local package database
+            return last-update header"""
+        try:
+            result = None
+            packages_url = self.repo_url + '/Packages'
+            # Check if updated
+            if not force:
+                last_update = self.waptdb.get_param('last-%s' % self.repo_url[:59])
+                if last_update:
+                    logger.debug(u'Check last-modified header for %s to avoid unecessary update' % (packages_url,))
+                    current_update = requests.head(packages_url,proxies=proxies).headers['last-modified']
+                    if current_update == last_update:
+                        logger.info(u'Index from %s has not been updated (last update %s), skipping update' % (packages_url,last_update))
+                        return current_update
+
+            logger.debug(u'Read remote Packages zip file %s' % packages_url)
+            packages_answer = requests.get(packages_url,proxies=proxies)
+            packages_answer.raise_for_status
+
+            # Packages file is a zipfile with one Packages file inside
+            packageListFile = codecs.decode(ZipFile2(
+                  StringIO.StringIO(packages_answer.content)
+                ).read(name='Packages'),'UTF-8').splitlines()
+
+            logger.debug(u'Purge packages table')
+            self.waptdb.db.execute('delete from wapt_package where repo_url=?',(self.repo_url,))
+            startline = 0
+            endline = 0
+            def add(start,end):
+                if start <> end:
+                    package = PackageEntry()
+                    package.load_control_from_wapt(packageListFile[start:end])
+                    logger.info(u"%s (%s)" % (package.package,package.version))
+                    package.repo_url = self.repo_url
+                    package.repo = self.name
+                    self.waptdb.add_package_entry(package)
+
+            for line in packageListFile:
+                if line.strip()=='':
+                    add(startline,endline)
+                    endline += 1
+                    startline = endline
+                # add ettribute to current package
+                else:
+                    endline += 1
+            # last one
+            add(startline,endline)
+
+            logger.debug(u'Commit wapt_package updates')
+            self.waptdb.db.commit()
+            current_update = packages_answer.headers['last-modified']
+            logger.debug(u'Storing last-modified header for repo_url %s : %s' % (self.repo_url,current_update))
+            self.waptdb.set_param('last-%s' % self.repo_url[:59],current_update)
+            return current_update
+        except:
+            logger.debug(u'rollback delete package')
+            self.waptdb.db.rollback()
+            raise
+
+class WaptHostRepo(WaptRepo):
+    def update_db(self,force=False,proxies=None):
+
+        host_package_url = "%s/%s.wapt" % (self.repo_url,setuphelpers.get_hostname().lower())
+        host_package_date = requests.head(host_package_url,proxies=proxies).headers['last-modified']
+        if host_package_date:
+            if (force or host_package_date <> self.waptdb.get_param('host_package_date')):
+                host_package = requests.get(host_package_url,proxies=proxies)
+                host_package.raise_for_status
+
+                # Packages file is a zipfile with one Packages file inside
+                control = codecs.decode(ZipFile2(
+                      StringIO.StringIO(host_package.content)
+                    ).read(name='WAPT/control'),'UTF-8').splitlines()
+
+                logger.debug(u'Purge packages table')
+                self.waptdb.db.execute('delete from wapt_package where repo_url=?',(self.repo_url,))
+
+                package = PackageEntry()
+                package.load_control_from_wapt(control)
+                logger.info(u"%s (%s)" % (package.package,package.version))
+                package.repo_url = self.repo_url
+                package.repo = self.name
+                self.waptdb.add_package_entry(package)
+
+                logger.debug(u'Commit wapt_package updates')
+                self.waptdb.db.commit()
+                self.waptdb.set_param('host_package_date',host_package_date)
+            else:
+                logger.debug(u'No change on host package at %s (%s)' % (host_package_url,host_package_date))
+
+        else:
+            logger.debug(u'No host package available at %s' % host_package_url)
+
+
+        return host_package_date
+
 
 ######################"""
 class Wapt(object):
@@ -1711,7 +1750,7 @@ class Wapt(object):
         self.options = OptionParser()
         self.options.force = False
 
-        # Stores the configuration of all repositories (url, public_cert...)
+        # Get the configuration of all repositories (url, public_cert...)
         self.repositories = []
         # secondary
         if self.config.has_option('global','repositories'):
@@ -1719,14 +1758,22 @@ class Wapt(object):
             logger.info(u'Other repositories : %s' % (names,))
             for name in names:
                 if name:
-                    w = WaptRepo(name).from_inifile(self.config)
+                    w = WaptRepo(self.waptdb,name).load_config(self.config)
                     self.repositories.append(w)
                     logger.debug(u'    %s:%s' % (w.name,w.repo_url))
         # last is main repository so it overrides the secondary repositories
-        w = WaptRepo('global').from_inifile(self.config)
+        main = WaptRepo(self.waptdb,'global').load_config(self.config)
         # override with calculated url
-        w.repo_url = self.wapt_repourl
-        self.repositories.append(w)
+        main.repo_url = self.wapt_repourl
+        self.repositories.append(main)
+
+        # add an automatic host repo
+        host_repo = WaptHostRepo(self.waptdb,'wapt-host')
+        # override with calculated url
+        host_repo.repo_url = main.repo_url+'-host'
+        host_repo.public_cert = main.public_cert
+        self.repositories.append(host_repo)
+
 
     @property
     def waptdb(self):
@@ -2011,6 +2058,7 @@ class Wapt(object):
         logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, setuphelpers.get_current_user(), params_dict))
         logger.info(u"Interactive user:%s, usergroups %s" % (self.user,self.usergroups))
         status = 'INIT'
+        # default is to use the main repo certificate
         if not public_cert:
             public_cert = self.get_public_cert()
         if not public_cert and not self.allow_unsigned:
@@ -2475,7 +2523,7 @@ class Wapt(object):
                 print u"Installing %s" % (p.package,)
                 result = self.install_wapt(fname(p.filename),
                     params_dict = params_dict,
-                    public_cert=self.get_public_cert(repository=p.repo),
+                    public_cert=self.get_public_cert(name=p.repo),
                     explicit_by=self.user if request in apackages else None
                     )
                 if result:
@@ -2551,86 +2599,88 @@ class Wapt(object):
     def remove(self,package,force=False):
         """Removes a package giving its package name, unregister from local status DB"""
         result = {'removed':[],'errors':[]}
-        q = self.waptdb.query("""\
-           select * from wapt_localstatus
-            where package=?
-           """ , (package,) )
-        if not q:
-            logger.warning(u"Package %s not installed, aborting" % package)
-            return result
-        # several versions installed of the same package... ?
-        for mydict in q:
-            self.runstatus="Removing package %s version %s from computer..." % (mydict['package'],mydict['version'])
+        try:
+            q = self.waptdb.query("""\
+               select * from wapt_localstatus
+                where package=?
+               """ , (package,) )
+            if not q:
+                logger.warning(u"Package %s not installed, aborting" % package)
+                return result
+            # several versions installed of the same package... ?
+            for mydict in q:
+                self.runstatus="Removing package %s version %s from computer..." % (mydict['package'],mydict['version'])
 
-            # removes recursively meta packages which are not satisfied anymore
-            additional_removes = self.checkremove(package)
-            if additional_removes:
-                logger.info('Additional packages to remove : %s' % additional_removes)
-                for apackage in additional_removes:
-                    res = self.remove(apackage,force=True)
-                    result['removed'].extend(res['removed'])
-                    result['errors'].extend(res['errors'])
+                # removes recursively meta packages which are not satisfied anymore
+                additional_removes = self.checkremove(package)
+                if additional_removes:
+                    logger.info('Additional packages to remove : %s' % additional_removes)
+                    for apackage in additional_removes:
+                        res = self.remove(apackage,force=True)
+                        result['removed'].extend(res['removed'])
+                        result['errors'].extend(res['errors'])
 
-            if mydict['uninstall_string']:
-                if mydict['uninstall_string'][0] not in ['[','"',"'"]:
-                    guids = mydict['uninstall_string']
-                else:
-                    try:
-                        guids = eval(mydict['uninstall_string'])
-                    except:
+                if mydict['uninstall_string']:
+                    if mydict['uninstall_string'][0] not in ['[','"',"'"]:
                         guids = mydict['uninstall_string']
-                if isinstance(guids,(unicode,str)):
-                    guids = [guids]
-                for guid in guids:
-                    if guid:
+                    else:
                         try:
-                            logger.info('Running %s' % guid)
-                            logger.info(setuphelpers.run(guid))
-                        except Exception,e:
-                            logger.info("Warning : %s" % ensure_unicode(e))
-                logger.info('Remove status record from local DB for %s' % package)
-                self.waptdb.remove_install_status(package)
-                result['removed'].append(package)
+                            guids = eval(mydict['uninstall_string'])
+                        except:
+                            guids = mydict['uninstall_string']
+                    if isinstance(guids,(unicode,str)):
+                        guids = [guids]
+                    for guid in guids:
+                        if guid:
+                            try:
+                                logger.info('Running %s' % guid)
+                                logger.info(setuphelpers.run(guid))
+                            except Exception,e:
+                                logger.info("Warning : %s" % ensure_unicode(e))
+                    logger.info('Remove status record from local DB for %s' % package)
+                    self.waptdb.remove_install_status(package)
+                    result['removed'].append(package)
 
-            elif mydict['uninstall_key']:
-                if mydict['uninstall_key'][0] not in ['[','"',"'"]:
-                    guids = mydict['uninstall_key']
-                else:
-                    try:
-                        guids = eval(mydict['uninstall_key'])
-                    except:
+                elif mydict['uninstall_key']:
+                    if mydict['uninstall_key'][0] not in ['[','"',"'"]:
                         guids = mydict['uninstall_key']
-
-                if isinstance(guids,(unicode,str)):
-                    guids = [guids]
-
-                for guid in guids:
-                    if guid:
+                    else:
                         try:
-                            uninstall_cmd =''
-                            uninstall_cmd = self.uninstall_cmd(guid)
-                            if uninstall_cmd:
-                                logger.info(u'Launch uninstall cmd %s' % (uninstall_cmd,))
-                                print setuphelpers.run(uninstall_cmd)
-                        except Exception,e:
-                            logger.critical(u"Critical error during uninstall of %s: %s" % (uninstall_cmd,ensure_unicode(e)))
-                            result['errors'].append(package)
-                logger.info('Remove status record from local DB for %s' % package)
-                self.waptdb.remove_install_status(package)
-                result['removed'].append(package)
-            else:
-                logger.critical(u'uninstall key not registered in local DB status, unable to remove properly.')
-                if force:
-                    logger.critical(u'Forced removal of local status of package %s' % package)
+                            guids = eval(mydict['uninstall_key'])
+                        except:
+                            guids = mydict['uninstall_key']
+
+                    if isinstance(guids,(unicode,str)):
+                        guids = [guids]
+
+                    for guid in guids:
+                        if guid:
+                            try:
+                                uninstall_cmd =''
+                                uninstall_cmd = self.uninstall_cmd(guid)
+                                if uninstall_cmd:
+                                    logger.info(u'Launch uninstall cmd %s' % (uninstall_cmd,))
+                                    print setuphelpers.run(uninstall_cmd)
+                            except Exception,e:
+                                logger.critical(u"Critical error during uninstall of %s: %s" % (uninstall_cmd,ensure_unicode(e)))
+                                result['errors'].append(package)
+                    logger.info('Remove status record from local DB for %s' % package)
                     self.waptdb.remove_install_status(package)
                     result['removed'].append(package)
                 else:
-                    result['errors'].append(package)
-                    raise Exception('  uninstall key not registered in local DB status, unable to remove properly. Please remove manually')
+                    logger.critical(u'uninstall key not registered in local DB status, unable to remove properly.')
+                    if force:
+                        logger.critical(u'Forced removal of local status of package %s' % package)
+                        self.waptdb.remove_install_status(package)
+                        result['removed'].append(package)
+                    else:
+                        result['errors'].append(package)
+                        raise Exception('  uninstall key not registered in local DB status, unable to remove properly. Please remove manually')
 
-        self.store_upgrade_status()
-        self.runstatus=''
-        return result
+            return result
+        finally:
+            self.store_upgrade_status()
+            self.runstatus=''
 
     def host_packagename(self):
         """Return package name for current computer"""
@@ -2639,6 +2689,7 @@ class Wapt(object):
     def check_host_package(self):
         hostresult = {}
         logger.debug(u'Check if host package "%s" is available' % (self.host_packagename(), ))
+
         host_packages = self.is_available(self.host_packagename())
         if host_packages and not self.is_installed(host_packages[-1].asrequirement()):
             return host_packages
@@ -2800,13 +2851,20 @@ class Wapt(object):
             inv['uuid'] = inv['host']['computer_fqdn']
         return inv
 
-    def get_public_cert(self,repository='global'):
-        if self.config.has_option(repository,'public_cert'):
-            return self.config.get(repository,'public_cert')
-        elif self.config.has_option('global','public_cert'):
-                return self.config.get('global','public_cert')
+    def get_repo(self,name):
+        for r in self.repositories:
+            if r.name == name:
+                return r
+        return None
+
+    def get_public_cert(self,name='global'):
+        repo = self.get_repo(name)
+        if repo.public_cert:
+            return repo.public_cert
         else:
-            return ''
+            repo = self.get_repo('global')
+            return repo.public_cert
+
 
     def signpackage(self,zip_or_directoryname,excludes=['.svn','.git*','*.pyc','src'],private_key=None,callback=pwd_callback):
         """calc the signature of the WAPT/manifest.sha1 file and put/replace it in ZIP or directory.
@@ -2931,38 +2989,49 @@ class Wapt(object):
             logger.debug(u'  Change current directory to %s' % previous_cwd)
             os.chdir(previous_cwd)
 
-    def build_upload(self,source_dir):
+    def build_upload(self,sources_directories,private_key_passwd=None):
         """Build a list of packages and upload the resulting packages to the main repository.
            if section of package is group or host, user specific wapt-host or wapt-group
         """
-        print('Building  %s' % source_dir)
-        result = self.buildpackage(source_dir)
-        package_fn = result['filename']
-        if package_fn:
-            def pwd_callback(*args):
-                """Default password callback for opening private keys"""
-                global key_passwd
-                if not key_passwd:
-                    key_passwd = getpass.getpass('Private key password :').encode('ascii')
-                return key_passwd
+        if not isinstance(sources_directories,list):
+            sources_directories = [sources_directories]
+        result = []
 
-            if self.private_key:
-                print('Signing %s' % package_fn)
-                signature = self.signpackage(package_fn,callback=pwd_callback)
-                print u"Package %s signed : signature :\n%s" % (package_fn,signature)
-            else:
-                logger.warning(u'No private key provided, package %s is unsigned !' % package_fn)
+        for source_dir in [os.path.abspath(p) for p in sources_directories]:
+            if os.path.isdir(source_dir):
+                print('Building  %s' % source_dir)
+                buildresult = self.buildpackage(source_dir)
+                package_fn = buildresult['filename']
+                if package_fn:
+                    result.append(buildresult)
+                    print('...done. Package filename %s' % (package_fn,))
 
-            # continue with upload
-            print 'Uploading files...'
-            if self.upload_cmd and 'build-upload':
-                print setuphelpers.run(self.upload_cmd % {'waptfile': package_fn})
-                if self.after_upload:
-                    print 'Run after upload script...'
-                    print setuphelpers.run(self.after_upload % {'waptfile': package_fn })
+                    def pwd_callback(*args):
+                        """Default password callback for opening private keys"""
+                        return private_key_passwd
+
+                    def pwd_callback2(*args):
+                        """Default password callback for opening private keys"""
+                        global key_passwd
+                        if not key_passwd:
+                            key_passwd = getpass.getpass('Private key password :').encode('ascii')
+                        return key_passwd
+
+                    if self.private_key:
+                        print('Signing %s' % package_fn)
+                        if private_key_passwd is None:
+                            signature = self.signpackage(package_fn,callback=pwd_callback2)
+                        else:
+                            signature = self.signpackage(package_fn,callback=pwd_callback)
+                        print u"Package %s signed : signature :\n%s" % (package_fn,signature)
+                    else:
+                        logger.warning(u'No private key provided, package %s is unsigned !' % package_fn)
+
                 else:
-                    print u'\nYou can upload to repository with\n  %s upload-package %s ' % (sys.argv[0],'"%s"' % (package_fn,) )
-
+                    logger.critical(u'package %s not created' % package_fn)
+            else:
+                logger.critical(u'Directory %s not found' % source_dir)
+        return result
 
     def session_setup(self,packagename,params_dict={}):
         """Setup the user session for a specific system wide installed package"

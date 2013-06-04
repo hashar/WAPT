@@ -29,6 +29,7 @@ import time
 import sys
 import pprint
 import zipfile
+from zipfile import ZipFile
 import tempfile
 import hashlib
 import glob
@@ -75,7 +76,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.6.20"
+__version__ = "0.6.20.1"
 
 logger = logging.getLogger()
 
@@ -344,192 +345,6 @@ def default_json(o):
 def jsondump(o,**kwargs):
     return json.dumps(o,default=default_json,**kwargs)
 
-_FHF_HAS_DATA_DESCRIPTOR = 0x8
-dataDescriptorSignature = 0x08074b50
-
-class ZipFile2(zipfile.ZipFile):
-    """ Class with methods to open, read, write, remove, close, list zip files.
-        patch to add remove() coming from http://bugs.python.org/file21188/zipfile.remove.2.patch
-    """
-    def __init__(self,*args,**kwargs):
-        zipfile.ZipFile.__init__(self,*args,**kwargs)
-        self._allowZip64 = True
-
-    def _get_data_descriptor_size(self, zinfo):
-       if self.mode not in ("r", "a"):
-           raise RuntimeError('to read the data descriptor requires mode "r" or "a"')
-
-       if not zinfo.flag_bits & _FHF_HAS_DATA_DESCRIPTOR:
-           return 0
-
-       original_fp = self.fp.tell()
-       data_descriptor_fp = zinfo.header_offset + len(zinfo.FileHeader()) + zinfo.compress_size
-       self.fp.seek(data_descriptor_fp)
-
-       sig_or_not_bin = self.fp.read(4)
-       sig_or_not = struct.unpack('<L', sig_or_not_bin)
-       self.fp.seek(original_fp)
-
-       # The data descriptor can either have the signature or not, yet
-       # the standards don't specify the signature as an illegal CRC.
-       if sig_or_not == dataDescriptorSignature:
-           return 16
-       else:
-           return 12
-
-    def remove(self, member):
-       """Remove a file from the archive. Only works if the ZipFile was opened
-       with mode 'a'."""
-
-       if "a" not in self.mode:
-           raise RuntimeError('remove() requires mode "a"')
-       if not self.fp:
-           raise RuntimeError(
-                 "Attempt to modify ZIP archive that was already closed")
-
-       # Make sure we have an info object
-       if isinstance(member, zipfile.ZipInfo):
-           # 'member' is already an info object
-           zinfo = member
-       else:
-           # Get info object for member
-           zinfo = self.getinfo(member)
-
-       # To remove the member we need its size and location in the archive
-       fname = zinfo.filename
-       fileofs = zinfo.header_offset
-       zlen = len(zinfo.FileHeader()) + zinfo.compress_size + self._get_data_descriptor_size(zinfo)
-
-       # Modify all the relevant file pointers
-       for info in self.infolist():
-           if info.header_offset > fileofs:
-               info.header_offset = info.header_offset - zlen
-
-       # Remove the zipped data
-       self.fp.seek(fileofs + zlen)
-       data_after = self.fp.read()
-       self.fp.seek(fileofs)
-       self.fp.write(data_after)
-       new_start_dir = self.start_dir - zlen
-       self.fp.seek(new_start_dir)
-       self.fp.truncate()
-
-       # Fix class members with state
-       self.start_dir = new_start_dir
-       self._didModify = True
-       self.filelist.remove(zinfo)
-       del self.NameToInfo[fname]
-
-    def _central_dir_header(self, zinfo):
-        dt = zinfo.date_time
-        dosdate = (dt[0] - 1980) << 9 | dt[1] << 5 | dt[2]
-        dostime = dt[3] << 11 | dt[4] << 5 | (dt[5] // 2)
-        extra = []
-        if zinfo.file_size > zipfile.ZIP64_LIMIT \
-                or zinfo.compress_size > zipfile.ZIP64_LIMIT:
-            extra.append(zinfo.file_size)
-            extra.append(zinfo.compress_size)
-            file_size = 0xffffffff
-            compress_size = 0xffffffff
-        else:
-            file_size = zinfo.file_size
-            compress_size = zinfo.compress_size
-
-        if zinfo.header_offset > zipfile.ZIP64_LIMIT:
-            extra.append(zinfo.header_offset)
-            header_offset = 0xffffffff
-        else:
-            header_offset = zinfo.header_offset
-
-        extra_data = zinfo.extra
-        if extra:
-            # Append a ZIP64 field to the extra's
-            extra_data = struct.pack(
-                    '<HH' + 'Q'*len(extra),
-                    1, 8*len(extra), *extra) + extra_data
-
-            extract_version = max(45, zinfo.extract_version)
-            create_version = max(45, zinfo.create_version)
-        else:
-            extract_version = zinfo.extract_version
-            create_version = zinfo.create_version
-
-        try:
-            filename, flag_bits = zinfo._encodeFilenameFlags()
-            centdir = struct.pack(zipfile.structCentralDir,
-                zipfile.stringCentralDir, create_version,
-                zinfo.create_system, extract_version, zinfo.reserved,
-                flag_bits, zinfo.compress_type, dostime, dosdate,
-                zinfo.CRC, compress_size, file_size,
-                len(filename), len(extra_data), len(zinfo.comment),
-                0, zinfo.internal_attr, zinfo.external_attr,header_offset)
-        except DeprecationWarning:
-            print((zipfile.structCentralDir, zipfile.stringCentralDir, create_version, \
-                zinfo.create_system, extract_version, zinfo.reserved, \
-                zinfo.flag_bits, zinfo.compress_type, dostime, dosdate, \
-                zinfo.CRC, compress_size, file_size, \
-                len(zinfo.filename), len(extra_data), \
-                len(zinfo.comment),0, zinfo.internal_attr, \
-                zinfo.external_attr,header_offset))
-            raise
-
-        return centdir + filename + extra_data + zinfo.comment
-
-    def close(self):
-        """Close the file, and for mode "w" and "a" write the ending
-        records."""
-        if self.fp is None:
-            return
-
-        if self.mode in ("w", "a") and self._didModify: # write ending records
-            count = 0
-            pos1 = self.fp.tell()
-            for zinfo in self.filelist:         # write central directory
-                count = count + 1
-                self.fp.write(self._central_dir_header(zinfo))
-
-            pos2 = self.fp.tell()
-            # Write end-of-zip-archive record
-            centDirCount = count
-            centDirSize = pos2 - pos1
-            centDirOffset = pos1
-            if (centDirCount >= zipfile.ZIP_FILECOUNT_LIMIT or
-                centDirOffset > zipfile.ZIP64_LIMIT or
-                centDirSize > zipfile.ZIP64_LIMIT):
-                # Need to write the ZIP64 end-of-archive records
-                zip64endrec = struct.pack(
-                        zipfile.structEndArchive64, zipfile.stringEndArchive64,
-                        44, 45, 45, 0, 0, centDirCount, centDirCount,
-                        centDirSize, centDirOffset)
-                self.fp.write(zip64endrec)
-
-                zip64locrec = struct.pack(
-                        zipfile.structEndArchive64Locator,
-                        zipfile.stringEndArchive64Locator, 0, pos2, 1)
-                self.fp.write(zip64locrec)
-                centDirCount = min(centDirCount, 0xFFFF)
-                centDirSize = min(centDirSize, 0xFFFFFFFF)
-                centDirOffset = min(centDirOffset, 0xFFFFFFFF)
-
-            # check for valid comment length
-            if len(self.comment) >= zipfile.ZIP_MAX_COMMENT:
-                if self.debug > 0:
-                    msg = 'Archive comment is too long; truncating to %d bytes' \
-                          % zipfile.ZIP_MAX_COMMENT
-                self.comment = self.comment[:zipfile.ZIP_MAX_COMMENT]
-
-            endrec = struct.pack(zipfile.structEndArchive, zipfile.stringEndArchive,
-                                 0, 0, centDirCount, centDirCount,
-                                 centDirSize, centDirOffset, len(self.comment))
-            self.fp.write(endrec)
-            self.fp.write(self.comment)
-            self.fp.flush()
-
-        if not self._filePassed:
-            self.fp.close()
-        self.fp = None
-
-
 def create_recursive_zip_signed(zipfn, source_root, target_root = u"",excludes = [u'.svn',u'.git*',u'*.pyc',u'*.dbg',u'src']):
     """Create a zip file with filename zipf from source_root directory with target_root as new root.
        Don't include file which match excludes file pattern
@@ -544,11 +359,11 @@ def create_recursive_zip_signed(zipfn, source_root, target_root = u"",excludes =
 
     if isinstance(zipfn,str) or isinstance(zipfn,unicode):
         if logger: logger.debug(u'Create zip file %s' % zipfn)
-        zipf = ZipFile2(zipfn,'w')
-    elif isinstance(zipfn,ZipFile2):
+        zipf = ZipFile(zipfn,'w')
+    elif isinstance(zipfn,ZipFile):
         zipf = zipfn
     else:
-        raise Exception('zipfn must be either a filename (string) or an ZipFile2')
+        raise Exception('zipfn must be either a filename (string) or an ZipFile')
     for item in os.listdir(source_root):
         excluded = False
         for x in excludes:
@@ -719,6 +534,20 @@ def tryurl(url,proxies=None):
         logger.debug(u'  Not available : %s' % ensure_unicode(e))
         return False
 
+
+class WaptSessionDB(object):
+    def __init__(self,username=''):
+        if not username:
+            username = setuphelpers.get_current_user()
+        self.username = username
+        self.dbpath = os.path.join(setuphelpers.application_data(),'wapt','waptsession.sqlite')
+        setuphelpers.ensure_dir(self.dbpath)
+
+
+class WaptBaseDB(object):
+    pass
+
+
 PackageKey = namedtuple('package',('packagename','version'))
 
 # tables : (oldversion:newversion) : old_table_name:[newtablename,{dict of changed field names}]
@@ -849,8 +678,6 @@ def adjust_privileges():
 
     return win32security.AdjustTokenPrivileges(htoken, 0, privileges)
 
-
-key_passwd = None
 
 class WaptDB(object):
     """Class to manage SQLite database with local installation status"""
@@ -1573,7 +1400,7 @@ class WaptRepo(object):
             packages_answer.raise_for_status
 
             # Packages file is a zipfile with one Packages file inside
-            packageListFile = codecs.decode(ZipFile2(
+            packageListFile = codecs.decode(ZipFile(
                   StringIO.StringIO(packages_answer.content)
                 ).read(name='Packages'),'UTF-8').splitlines()
 
@@ -1623,7 +1450,7 @@ class WaptHostRepo(WaptRepo):
                 host_package.raise_for_status
 
                 # Packages file is a zipfile with one Packages file inside
-                control = codecs.decode(ZipFile2(
+                control = codecs.decode(ZipFile(
                       StringIO.StringIO(host_package.content)
                     ).read(name='WAPT/control'),'UTF-8').splitlines()
 
@@ -1651,6 +1478,9 @@ class WaptHostRepo(WaptRepo):
 
 
 ######################"""
+key_passwd = None
+
+
 class Wapt(object):
     """Global WAPT engine"""
     def __init__(self,config=None,config_filename=None,defaults=None):
@@ -1927,17 +1757,21 @@ class Wapt(object):
             Kill old stucked wapt-get processes/children and update db status
             max_ttl is maximum age of wapt-get in minutes
         """
-        wapt_processes = [ p for p in setuphelpers.find_processes('wapt-get') if p.pid <> os.getpid() ]
 
         # kill old wapt-get
         mindate = time.time() - max_ttl*60
+
+        wapt_processes = [ p for p in setuphelpers.find_processes('wapt-get') if p.pid <> os.getpid() ]
 
         # to keep the list of supposedly killed wapt-get processes
         killed=[]
         for p in wapt_processes:
             if p.create_time < mindate:
-                setuphelpers.killtree(p.pid)
-                killed.append(p.pid)
+                try:
+                    killed.append(p.pid)
+                    setuphelpers.killtree(p.pid)
+                except psutil.NoSuchProcess,psutil.AccessDenied:
+                    pass
 
         # reset install_status
         init_run_pids = self.waptdb.query("""\
@@ -2103,7 +1937,7 @@ class Wapt(object):
             if os.path.isfile(fname):
                 packagetempdir = tempfile.mkdtemp(prefix="wapt")
                 logger.info(u'  unzipping %s to temporary %s' % (fname,packagetempdir))
-                zip = ZipFile2(fname)
+                zip = ZipFile(fname)
                 zip.extractall(path=packagetempdir)
                 istemporary = True
             elif os.path.isdir(fname):
@@ -2878,7 +2712,7 @@ class Wapt(object):
         if not os.path.isfile(private_key):
             raise Exception('Private key file %s not found' % private_key)
         if os.path.isfile(zip_or_directoryname):
-            waptzip = ZipFile2(zip_or_directoryname,'a')
+            waptzip = ZipFile(zip_or_directoryname,'a')
             manifest = waptzip.open('WAPT/manifest.sha1').read()
         else:
             manifest_data = get_manifest_data(zip_or_directoryname,excludes=excludes)
@@ -3427,14 +3261,14 @@ def install():
             source_filename = packagename
             source_control = PackageEntry().load_control_from_wapt(source_filename)
             logger.info('  unzipping %s to directory %s' % (source_filename,package_dev_dir))
-            zip = ZipFile2(source_filename)
+            zip = ZipFile(source_filename)
             zip.extractall(path=package_dev_dir)
         else:
             filenames = self.download_packages([packagename])
             source_filename = (filenames['downloaded'] or filenames['skipped'])[0]
             source_control = PackageEntry().load_control_from_wapt(source_filename)
             logger.info('  unzipping %s to directory %s' % (source_filename,package_dev_dir))
-            zip = ZipFile2(source_filename)
+            zip = ZipFile(source_filename)
             zip.extractall(path=package_dev_dir)
 
         # duplicate package informations

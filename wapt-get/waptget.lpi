@@ -21,7 +21,7 @@
       <UseVersionInfo Value="True"/>
       <AutoIncrementBuild Value="True"/>
       <MinorVersionNr Value="6"/>
-      <RevisionNr Value="21"/>
+      <RevisionNr Value="22"/>
       <StringTable CompanyName="Tranquil IT Systems" ProductName="WAPT Installation" ProductVersion=""/>
     </VersionInfo>
     <BuildModes Count="1" Active="Default">
@@ -52,12 +52,11 @@
         <PackageName Value="pl_indycomp"/>
       </Item4>
     </RequiredPackages>
-    <Units Count="18">
+    <Units Count="19">
       <Unit0>
         <Filename Value="waptget.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="waptget"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
         <TopLine Value="31"/>
@@ -204,8 +203,20 @@
         <CursorPos X="3" Y="115"/>
         <UsageCount Value="6"/>
       </Unit17>
+      <Unit18>
+        <Filename Value="..\..\pltis_python4delphi\PythonForDelphi\Components\Sources\Core\PythonEngine.pas"/>
+        <UnitName Value="PythonEngine"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="5388"/>
+        <CursorPos X="77" Y="5405"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit18>
     </Units>
-    <JumpHistory Count="7" HistoryIndex="6">
+    <JumpHistory Count="8" HistoryIndex="7">
       <Position1>
         <Filename Value="waptget.lpr"/>
         <Caret Line="193" Column="55" TopLine="1"/>
@@ -234,6 +245,10 @@
         <Filename Value="waptget.lpr"/>
         <Caret Line="199" Column="1" TopLine="187"/>
       </Position7>
+      <Position8>
+        <Filename Value="waptget.lpr"/>
+        <Caret Line="50" Column="35" TopLine="31"/>
+      </Position8>
     </JumpHistory>
   </ProjectOptions>
   <CompilerOptions>

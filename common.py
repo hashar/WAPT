@@ -1503,7 +1503,7 @@ class WaptHostRepo(WaptRepo):
                     ).read(name='WAPT/control'),'UTF-8').splitlines()
 
                 logger.debug(u'Purge packages table')
-                self.waptdb.db.execute('delete from wapt_package where repo_url=?',(self.repo_url,))
+                self.waptdb.db.execute('delete from wapt_package where package=?',(host,))
 
                 package = PackageEntry()
                 package.load_control_from_wapt(control)
@@ -1520,6 +1520,8 @@ class WaptHostRepo(WaptRepo):
 
         else:
             logger.debug(u'No host package available at %s' % host_package_url)
+            self.waptdb.db.execute('delete from wapt_package where package=?',(host,))
+            self.waptdb.db.commit()
             self.waptdb.delete_param(host_cachedate)
 
         return host_package_date

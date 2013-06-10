@@ -236,7 +236,7 @@ begin
                             ' (select max(p.version) from wapt_package p where p.package=s.package) as repo_version,explicit_by as install_par'+
                             ' from wapt_localstatus s'+
                             ' order by s.package';
-        AResponseInfo.ContentText:= WaptDB.QueryToHTMLtable(AQuery,@StatusTableHook);
+        AResponseInfo.ContentText:= WaptDB.QueryToHTMLtable(AQuery,@RepoTableHook);
       finally
       end
       else

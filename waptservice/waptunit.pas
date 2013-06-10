@@ -236,14 +236,14 @@ begin
                             ' (select max(p.version) from wapt_package p where p.package=s.package) as repo_version,explicit_by as install_par'+
                             ' from wapt_localstatus s'+
                             ' order by s.package';
-        AResponseInfo.ContentText:= WaptDB.QueryToHTMLtable(AQuery,@RepoTableHook);
+        AResponseInfo.ContentText:= WaptDB.QueryToHTMLtable(AQuery,@StatusTableHook);
       finally
       end
       else
       if ARequestInfo.URI='/list' then
       try
         AQuery := 'select "Install" as install,package,version,description,size from wapt_package where section<>"host" order by package,version';
-        AResponseInfo.ContentText:=WaptDB.QueryToHTMLtable(AQuery,@StatusTableHook);
+        AResponseInfo.ContentText:=WaptDB.QueryToHTMLtable(AQuery,@RepoTableHook);
       finally
       end
       else

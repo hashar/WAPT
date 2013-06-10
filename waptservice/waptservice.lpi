@@ -93,8 +93,8 @@
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="219"/>
-        <CursorPos X="66" Y="239"/>
+        <TopLine Value="273"/>
+        <CursorPos X="34" Y="292"/>
         <UsageCount Value="202"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -995,7 +995,7 @@
         <WatchScope Value="wpsLocal"/>
         <WatchKind Value="wpkWrite"/>
         <Source Value="waptunit.pas"/>
-        <Line Value="678"/>
+        <Line Value="686"/>
       </Item2>
       <Item3>
         <Kind Value="bpkSource"/>

@@ -284,6 +284,14 @@ begin
         AResponseInfo.ContentText:= '<h2>Output</h2>'+CmdOutput;
       end
       else
+      if ARequestInfo.URI='/clean' then
+      begin
+        cmd := WaptgetPath+' -lwarning clean';
+        CmdOutput := Sto_RedirectedExecute(cmd);
+        CmdOutput := cmd+'<br>'+StrUtils.StringsReplace(CmdOutput,[#13#10],['<br>'],[rfReplaceAll]);
+        AResponseInfo.ContentText:= '<h2>Output</h2>'+CmdOutput;
+      end
+      else
       if ARequestInfo.URI='/enable' then
       begin
         cmd := WaptgetPath+' -lcritical enable-tasks';

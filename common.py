@@ -76,7 +76,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.6.21"
+__version__ = "0.6.22"
 
 logger = logging.getLogger()
 
@@ -2208,8 +2208,11 @@ class Wapt(object):
         for f in glob.glob(os.path.join(cachepath,'*.wapt')):
             if os.path.isfile(f):
                 logger.debug(u'Removing %s' % f)
-                os.remove(f)
-                result.append(f)
+                try:
+                    os.remove(f)
+                    result.append(f)
+                except Exception,e:
+                    logger.warning('Unable to remove %s : %s' % (f,ensure_unicode(e)))
         return result
 
     def update(self,force=False):

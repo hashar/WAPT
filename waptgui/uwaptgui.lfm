@@ -1,30 +1,31 @@
 object VisWaptGUI: TVisWaptGUI
-  Left = 405
+  Left = 880
   Height = 583
-  Top = 265
+  Top = 216
   Width = 1028
   Caption = 'VisWaptGUI'
-  ClientHeight = 583
+  ClientHeight = 563
   ClientWidth = 1028
+  Menu = MainMenu1
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   LCLVersion = '1.1'
   object PageControl1: TPageControl
     Left = 0
-    Height = 460
+    Height = 440
     Top = 0
     Width = 1028
-    ActivePage = TabSheet2
+    ActivePage = TabSheet1
     Align = alClient
-    TabIndex = 1
+    TabIndex = 0
     TabOrder = 0
     object TabSheet1: TTabSheet
       Caption = 'Sources'
-      ClientHeight = 434
+      ClientHeight = 414
       ClientWidth = 1020
       inline testedit: TSynEdit
         Left = 0
-        Height = 400
+        Height = 380
         Top = 34
         Width = 1020
         Align = alClient
@@ -611,7 +612,7 @@ object VisWaptGUI: TVisWaptGUI
     end
     object TabSheet2: TTabSheet
       Caption = 'Recherche packages'
-      ClientHeight = 434
+      ClientHeight = 414
       ClientWidth = 1020
       object Panel4: TPanel
         Left = 0
@@ -642,7 +643,7 @@ object VisWaptGUI: TVisWaptGUI
       end
       object lstPackages: TVirtualJSONListView
         Left = 0
-        Height = 400
+        Height = 380
         Top = 34
         Width = 1020
         Align = alClient
@@ -701,11 +702,11 @@ object VisWaptGUI: TVisWaptGUI
     end
     object TabSheet3: TTabSheet
       Caption = 'Mise à jour package'
-      ClientHeight = 434
+      ClientHeight = 414
       ClientWidth = 1020
       object tvjson: TVirtualJSONInspector
         Left = 0
-        Height = 400
+        Height = 380
         Top = 34
         Width = 1020
         PropertyDefs = <>
@@ -932,12 +933,12 @@ object VisWaptGUI: TVisWaptGUI
           item
             AutoSize = True
             Caption = 'Package'
-            Width = 52
+            Width = 55
           end        
           item
             AutoSize = True
             Caption = 'Status'
-            Width = 43
+            Width = 46
           end        
           item
             AutoSize = True
@@ -947,12 +948,12 @@ object VisWaptGUI: TVisWaptGUI
           item
             AutoSize = True
             Caption = 'Description'
-            Width = 65
+            Width = 68
           end        
           item
             AutoSize = True
             Caption = 'Depends'
-            Width = 502
+            Width = 493
           end>
         Items.LazData = {
           7A00000003000000FFFFFFFFFFFFFFFFFFFFFFFF020000000400000074657374
@@ -1015,22 +1016,21 @@ object VisWaptGUI: TVisWaptGUI
             item
               AutoSize = True
               Caption = 'Package'
-              Width = 52
+              Width = 55
             end          
             item
               AutoSize = True
               Caption = 'Version'
-              Width = 47
             end          
             item
               AutoSize = True
               Caption = 'Description'
-              Width = 65
+              Width = 68
             end          
             item
               AutoSize = True
               Caption = 'Depends'
-              Width = 120
+              Width = 111
             end>
           DragMode = dmAutomatic
           Items.LazData = {
@@ -1050,7 +1050,7 @@ object VisWaptGUI: TVisWaptGUI
     end
     object pgInventory: TTabSheet
       Caption = 'Inventaire'
-      ClientHeight = 434
+      ClientHeight = 414
       ClientWidth = 1020
       object Panel10: TPanel
         Left = 0
@@ -1080,7 +1080,7 @@ object VisWaptGUI: TVisWaptGUI
           Left = 228
           Height = 17
           Top = 10
-          Width = 151
+          Width = 149
           Caption = 'Nécessite des mises à jours'
           TabOrder = 1
         end
@@ -1088,14 +1088,14 @@ object VisWaptGUI: TVisWaptGUI
           Left = 404
           Height = 17
           Top = 10
-          Width = 102
+          Width = 100
           Caption = 'Avec des erreurs'
           TabOrder = 2
         end
       end
       object GridHosts: TVirtualJSONListView
         Left = 0
-        Height = 400
+        Height = 380
         Top = 34
         Width = 448
         Align = alLeft
@@ -1125,7 +1125,7 @@ object VisWaptGUI: TVisWaptGUI
       end
       object PageControl2: TPageControl
         Left = 448
-        Height = 400
+        Height = 380
         Top = 34
         Width = 572
         ActivePage = pgHostPackage
@@ -1253,7 +1253,7 @@ object VisWaptGUI: TVisWaptGUI
   object Panel3: TPanel
     Left = 0
     Height = 118
-    Top = 465
+    Top = 445
     Width = 1028
     Align = alBottom
     ClientHeight = 118
@@ -1321,7 +1321,7 @@ object VisWaptGUI: TVisWaptGUI
       Left = 8
       Height = 17
       Top = 96
-      Width = 136
+      Width = 134
       Anchors = [akLeft, akBottom]
       Caption = 'Voir infos de débuggage'
       OnClick = cbShowLogClick
@@ -1332,7 +1332,7 @@ object VisWaptGUI: TVisWaptGUI
     Cursor = crVSplit
     Left = 0
     Height = 5
-    Top = 460
+    Top = 440
     Width = 1028
     Align = alBottom
     ResizeAnchor = akBottom
@@ -1430,6 +1430,16 @@ object VisWaptGUI: TVisWaptGUI
       Caption = 'Sauver'
       OnExecute = ActEditSavePackageExecute
     end
+    object ActCreateCertificate: TAction
+      Category = 'Tools'
+      Caption = 'Création de certificat auto-signé'
+      OnExecute = ActCreateCertificateExecute
+    end
+    object ActCreateWaptSetup: TAction
+      Category = 'Tools'
+      Caption = 'Créer un Installeur Wapt personnalisé'
+      OnExecute = ActCreateWaptSetupExecute
+    end
   end
   object PopupMenuPackages: TPopupMenu
     left = 148
@@ -1454,5 +1464,48 @@ object VisWaptGUI: TVisWaptGUI
   object UniqueInstance1: TUniqueInstance
     left = 632
     top = 144
+  end
+  object MainMenu1: TMainMenu
+    left = 488
+    top = 104
+    object MenuItem5: TMenuItem
+      Caption = 'Fichier'
+      object MenuItem6: TMenuItem
+        Caption = 'Nouveau'
+      end
+      object MenuItem7: TMenuItem
+        Caption = '-'
+      end
+      object MenuItem8: TMenuItem
+        Caption = 'Ouvrir...'
+      end
+      object MenuItem9: TMenuItem
+        Caption = 'Réouvrir'
+      end
+      object MenuItem10: TMenuItem
+        Caption = 'Enregistrer ...'
+      end
+      object MenuItem11: TMenuItem
+        Caption = 'Enregistrer sous'
+      end
+      object MenuItem12: TMenuItem
+        Caption = '&Fermer'
+      end
+      object MenuItem13: TMenuItem
+        Caption = '-'
+      end
+      object MenuItem14: TMenuItem
+        Caption = 'Quitter'
+      end
+    end
+    object MenuItem15: TMenuItem
+      Caption = 'Outils'
+      object MenuItem16: TMenuItem
+        Action = ActCreateCertificate
+      end
+      object MenuItem17: TMenuItem
+        Action = ActCreateWaptSetup
+      end
+    end
   end
 end

@@ -24,6 +24,8 @@ type
     ActEditSearch: TAction;
     ActEditRemove: TAction;
     ActEditSavePackage: TAction;
+    ActCreateCertificate: TAction;
+    ActCreateWaptSetup: TAction;
     ActUpgrade: TAction;
     ActUpdate: TAction;
     ActRemove: TAction;
@@ -59,11 +61,25 @@ type
     Label5: TLabel;
     lstDepends: TListView;
     lstPackages1: TListView;
+    MainMenu1: TMainMenu;
     Memo1: TMemo;
     MenuItem1: TMenuItem;
+    MenuItem10: TMenuItem;
+    MenuItem11: TMenuItem;
+    MenuItem12: TMenuItem;
+    MenuItem13: TMenuItem;
+    MenuItem14: TMenuItem;
+    MenuItem15: TMenuItem;
+    MenuItem16: TMenuItem;
+    MenuItem17: TMenuItem;
     MenuItem2: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
+    MenuItem5: TMenuItem;
+    MenuItem6: TMenuItem;
+    MenuItem7: TMenuItem;
+    MenuItem8: TMenuItem;
+    MenuItem9: TMenuItem;
     PageControl1: TPageControl;
     PageControl2: TPageControl;
     Panel1: TPanel;
@@ -101,6 +117,8 @@ type
     VirtualJSONListView2: TVirtualJSONListView;
     VirtualJSONListView3: TVirtualJSONListView;
     procedure ActBuildUploadExecute(Sender: TObject);
+    procedure ActCreateCertificateExecute(Sender: TObject);
+    procedure ActCreateWaptSetupExecute(Sender: TObject);
     procedure ActEditpackageExecute(Sender: TObject);
     procedure ActEditRemoveExecute(Sender: TObject);
     procedure ActEditSavePackageExecute(Sender: TObject);
@@ -146,7 +164,7 @@ var
   VisWaptGUI: TVisWaptGUI;
 
 implementation
-uses LCLIntf,soutils,waptcommon;
+uses LCLIntf,soutils,waptcommon,uVisCreateKey,uVisGenerateWaptSetup;
 {$R *.lfm}
 
 { TVisWaptGUI }
@@ -358,6 +376,56 @@ begin
 
 end;
 
+procedure TVisWaptGUI.ActCreateCertificateExecute(Sender: TObject);
+var
+  params:String;
+  result:ISuperObject;
+  done : Boolean;
+begin
+  With TVisCreateKey.Create(Self) do
+  try
+    repeat
+      if ShowModal=mrOk then
+      try
+        params :='';
+        params := params+format('orgname="%s",',[edOrgName.text]);
+        params := params+format('destdir="%s",',[DirectoryCert.Directory]);
+        params := params+format('country="%s",',[edCountry.Text]);
+        params := params+format('locality="%s",',[edLocality.Text]);
+        params := params+format('organization="%s",',[edOrganization.Text]);
+        params := params+format('unit="%s",',[edUnit.Text]);
+        params := params+format('commonname="%s",',[edCommonName.Text]);
+        params := params+format('email="%s",',[edEmail.Text]);
+        result := RunJSON(format('mywapt.create_self_signed_key(%s)',[params]),jsonlog);
+        done := FileExists(result.S['pem_filename']);
+        if done then
+           ShowMessageFmt('La clé %s a été créée avec succès',[result.S['pem_filename']]);
+      except
+        on e:Exception do
+        begin
+             ShowMessage('Erreur à la création de la clé : '+e.Message);
+             done := False;
+        end;
+      end
+      else
+          done := True;
+    until done ;
+  finally
+    Free;
+  end;
+end;
+
+procedure TVisWaptGUI.ActCreateWaptSetupExecute(Sender: TObject);
+begin
+  With TVisGenerateWaptSetup.Create(self) do
+  try
+
+  finally
+  end;
+
+
+end;
+
 procedure TVisWaptGUI.ActEvaluateExecute(Sender: TObject);
 var
   res:String;
@@ -521,6 +589,10 @@ begin
 
 end;
 
+
+
+
+
 procedure TVisWaptGUI.LoadJson(data: UTF8String);
 var
   P:TJSONParser;
@@ -535,7 +607,8 @@ begin
   end;
 end;
 
-function TVisWAPTGui.RunJSON(expr:UTF8String;jsonView:TVirtualJSONInspector=Nil):ISuperObject;
+function TVisWaptGUI.RunJSON(expr: UTF8String; jsonView: TVirtualJSONInspector
+  ): ISuperObject;
 var
   res:UTF8String;
 begin

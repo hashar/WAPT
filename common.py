@@ -3107,6 +3107,7 @@ class Wapt(object):
     def getproductprops(self,installer_path):
         """returns a dict {'product','description','version','publisher'}"""
         (product_name,ext) = os.path.splitext(installer_path.lower())
+        product_name = os.path.basename(product_name)
         product_desc = product_name
         version ='0.0.0'
         publisher =''
@@ -3114,16 +3115,24 @@ class Wapt(object):
         if ext=='.exe':
             props = setuphelpers.get_file_properties(installer_path)
             product_name = props['ProductName'] or product_desc
-
-            if 'Manufacturer' in props and props['Manufacturer']:
-                publisher = props['Manufacturer']
-                product_desc = "%s (%s)" % (product_name,publisher)
         elif ext=='.msi':
             props = setuphelpers.get_msi_properties(installer_path)
             product_name = props['ProductName'] or props['FileDescription'] or product_desc
-            if props['CompanyName']:
-                publisher = props['CompanyName']
-                product_desc = "%s (%s)" % (product_name,publisher)
+
+        if 'Manufacturer' in props and props['Manufacturer']:
+            publisher = props['Manufacturer']
+        elif 'CompanyName' in props and props['CompanyName']:
+            publisher = props['CompanyName']
+
+        if publisher:
+            product_desc = "%s (%s)" % (product_name,publisher)
+        else:
+            product_desc = "%s" % (product_name,)
+
+        if 'FileVersion' in props and props['FileVersion']:
+            version = props['FileVersion']
+        elif 'ProductVersion' in props and props['ProductVersion']:
+            version = props['ProductVersion']
 
         props['product'] = product_name
         props['description'] = product_desc
@@ -3197,7 +3206,7 @@ def install():
 
             entry.priority = 'optional'
             entry.section = 'base'
-            entry.version = props['version']
+            entry.version = props['version']+'-0'
             if self.config.has_option('global','default_sources_url'):
                 entry.sources = self.config.get('global','default_sources_url') % {'packagename':packagename}
             codecs.open(control_filename,'w',encoding='utf8').write(entry.ascontrol())

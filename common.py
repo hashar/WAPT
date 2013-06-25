@@ -336,13 +336,14 @@ def ssl_verify_content(content,signature,public_certs):
             raise Exception('Public certificate %s not found' % fn)
     from M2Crypto import EVP, X509
     for public_cert in public_certs:
-        rsa = X509.load_cert(public_cert).get_pubkey().get_rsa()
+        crt = X509.load_cert(public_cert)
+        rsa = crt.get_pubkey().get_rsa()
         pubkey = EVP.PKey()
         pubkey.assign_rsa(rsa)
         pubkey.verify_init()
         pubkey.verify_update(content)
         if pubkey.verify_final(signature):
-            return public_cert
+            return crt.get_subject().as_text()
     raise Exception('SSL signature verification failed, either none public certificates match signature or signed content has been changed')
 
 
@@ -2039,7 +2040,8 @@ class Wapt(object):
                 if not self.allow_unsigned:
                     if self.public_certs and os.path.isfile(signature_filename):
                         signature = open(signature_filename,'r').read().decode('base64')
-                        ssl_verify_content(manifest_data,signature,self.public_certs)
+                        subject = ssl_verify_content(manifest_data,signature,self.public_certs)
+                        logger.info('Package issued by %s' % (subject,))
                     else:
                         if not self.allow_unsigned:
                             raise Exception('No certificate provided or package does not contain a signature, and unsigned packages install is not allowed')
@@ -2439,7 +2441,9 @@ class Wapt(object):
                 manifest_content = waptfile.open(u'WAPT/manifest.sha1').read()
                 manifest = json.loads(manifest_content)
                 signature = waptfile.open(u'WAPT/signature').read().decode('base64')
-                ssl_verify_content(manifest_content,signature,self.public_certs)
+                subject = ssl_verify_content(manifest_content,signature,self.public_certs)
+                logger.info('Package issued by %s' % (subject,))
+
                 for (fn,sha1) in manifest:
                     if fn == 'WAPT\\control':
                         if sha1 <> sha1_for_data(control):

@@ -224,6 +224,7 @@ object VisWaptGUI: TVisWaptGUI
         Height = 562
         Top = 34
         Width = 588
+        OnGetText = GridHostsGetText
         Align = alClient
         Color = clWhite
         Header.AutoSizeIndex = -1
@@ -231,37 +232,37 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Position = 0
-            Text = 'name'
+            Text = 'Machine'
             Width = 100
-            PropertyName = 'name'
+            PropertyName = 'host.computer_fqdn'
           end        
           item
             MaxWidth = 400
             Position = 1
-            Text = 'description'
+            Text = 'host.description'
             Width = 100
-            PropertyName = 'description'
+            PropertyName = 'host.description'
           end        
           item
             MaxWidth = 400
             Position = 2
-            Text = 'manufacturer'
+            Text = 'host.system_manufacturer'
             Width = 100
-            PropertyName = 'manufacturer'
+            PropertyName = 'host.system_manufacturer'
           end        
           item
             MaxWidth = 400
             Position = 3
-            Text = 'model'
+            Text = 'host.system_productname'
             Width = 100
-            PropertyName = 'model'
+            PropertyName = 'host.system_productname'
           end        
           item
             MaxWidth = 400
             Position = 4
-            Text = 'serial'
+            Text = 'dmi.''Chassis Information''.''Serial Number'''
             Width = 100
-            PropertyName = 'serial'
+            PropertyName = 'dmi.''Chassis Information''.''Serial Number'''
           end        
           item
             MaxWidth = 400
@@ -351,6 +352,7 @@ object VisWaptGUI: TVisWaptGUI
         TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
         OnChange = GridHostsChange
         OnCompareNodes = GridPackagesCompareNodes
+        OnDblClick = ActEditHostPackageExecute
         OnHeaderClick = GridPackagesHeaderClick
       end
       object HostPages: TPageControl
@@ -358,9 +360,9 @@ object VisWaptGUI: TVisWaptGUI
         Height = 562
         Top = 34
         Width = 572
-        ActivePage = pgHostPackage
+        ActivePage = pgSoftwares
         Align = alRight
-        TabIndex = 0
+        TabIndex = 2
         TabOrder = 2
         OnChange = HostPagesChange
         object pgHostPackage: TTabSheet
@@ -420,13 +422,13 @@ object VisWaptGUI: TVisWaptGUI
                 Position = 1
                 Text = 'Nom paquet'
                 Width = 300
-                PropertyName = 'name'
+                PropertyName = 'package'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
                 Position = 2
                 Text = 'Status'
-                PropertyName = 'status'
+                PropertyName = 'install_status'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
@@ -446,6 +448,11 @@ object VisWaptGUI: TVisWaptGUI
                 Position = 5
                 Text = 'Dependances'
                 PropertyName = 'depends'
+              end            
+              item
+                Position = 6
+                Text = 'Date installation'
+                PropertyName = 'install_date'
               end>
             Header.DefaultHeight = 17
             Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]

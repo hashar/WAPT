@@ -1,7 +1,7 @@
 object VisWaptGUI: TVisWaptGUI
-  Left = 296
+  Left = 375
   Height = 764
-  Top = 135
+  Top = 142
   Width = 1173
   Caption = 'VisWaptGUI'
   ClientHeight = 745
@@ -202,7 +202,7 @@ object VisWaptGUI: TVisWaptGUI
           Caption = 'Nécessite des mises à jours'
           TabOrder = 1
         end
-        object CheckBox2: TCheckBox
+        object CheckBox_error: TCheckBox
           Left = 524
           Height = 17
           Top = 6
@@ -260,9 +260,9 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Position = 4
-            Text = 'dmi.''Chassis Information''.''Serial Number'''
+            Text = 'dmi.Chassis\sInformation.Serial\sNumber'
             Width = 100
-            PropertyName = 'dmi.''Chassis Information''.''Serial Number'''
+            PropertyName = 'dmi.Chassis\sInformation.Serial\sNumber'
           end        
           item
             MaxWidth = 400
@@ -274,16 +274,16 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Position = 6
-            Text = 'mac'
+            Text = 'host.mac'
             Width = 100
-            PropertyName = 'mac'
+            PropertyName = 'host.mac'
           end        
           item
             MaxWidth = 400
             Position = 7
-            Text = 'last_known_ip'
+            Text = 'host.connected_ips'
             Width = 100
-            PropertyName = 'last_known_ip'
+            PropertyName = 'host.connected_ips'
           end        
           item
             MaxWidth = 400

@@ -44,7 +44,7 @@ type
     Button8: TButton;
     cbShowLog: TCheckBox;
     CheckBox1: TCheckBox;
-    CheckBox2: TCheckBox;
+    CheckBox_error: TCheckBox;
     EdSearch2: TEdit;
     EdSearchHost: TEdit;
     EdRun: TEdit;
@@ -420,8 +420,12 @@ end;
 procedure TVisWaptGUI.ActSearchHostExecute(Sender: TObject);
 var
   hosts:String;
+  url:String='json/host_list';
 begin
-  hosts := WAPTServerJsonGet('json/host_list',[]).AsJson;
+  if CheckBox_error.Checked = True then
+    url:= url + '?error=true';
+
+  hosts := WAPTServerJsonGet(url,[]).AsJson;
   GridLoadData(GridHosts,hosts);
 end;
 

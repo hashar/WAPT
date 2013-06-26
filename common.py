@@ -76,7 +76,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.6.23"
+__version__ = "0.6.24"
 
 logger = logging.getLogger()
 
@@ -304,6 +304,7 @@ def sha1_for_file(fname, block_size=2**20):
     return sha1.hexdigest()
 
 def sha1_for_data(data):
+    assert(isinstance(data,str))
     sha1 = hashlib.sha1()
     sha1.update(data)
     return sha1.hexdigest()
@@ -1575,6 +1576,21 @@ class Wapt(object):
         self.config = config
         if not self.config:
             # default config file
+            if not defaults:
+                defaults = {
+                    'repositories':'',
+                    'repo_url':'',
+                    'default_source_url':'',
+                    'private_key':'',
+                    'default_package_prefix':'tis',
+                    'default_sources_suffix':'wapt',
+                    'default_sources_root':'c:\\waptdev',
+                    'default_sources_url':'',
+                    'upload_cmd':'',
+                    'wapt_server':'',
+                    'loglevel':'warning',
+                    }
+
             self.config = RawConfigParser(defaults = defaults)
             self.config.read(self.config_filename)
 
@@ -1613,6 +1629,11 @@ class Wapt(object):
             self.upload_cmd = self.config.get('global','upload_cmd')
         else:
             self.upload_cmd = None
+
+        if self.config.has_option('global','upload_cmd_host'):
+            self.upload_cmd_host = self.config.get('global','upload_cmd_host')
+        else:
+            self.upload_cmd_host = self.upload_cmd
 
         if self.config.has_option('global','after_upload'):
             self.after_upload = self.config.get('global','after_upload')
@@ -2226,7 +2247,7 @@ class Wapt(object):
         if not os.path.isfile(svncmd):
             raise Exception('svn.exe command not available, please install TortoiseSVN with commandline tools')
 
-        co_dir = self.get_default_development_dir(entry.package)
+        co_dir = self.get_default_development_dir(entry.package, section = entry.section)
 
         logger.info('sources : %s'% entry.sources)
         logger.info('checkout dir : %s'% co_dir)
@@ -2446,7 +2467,7 @@ class Wapt(object):
 
                 for (fn,sha1) in manifest:
                     if fn == 'WAPT\\control':
-                        if sha1 <> sha1_for_data(control):
+                        if sha1 <> sha1_for_data(control.encode('utf8')):
                             raise Exception("WAPT/control file of %s is corrupted, sha1 digests don't match" % fname)
                         break
                 # Merge updated control data
@@ -2489,7 +2510,7 @@ class Wapt(object):
         errors = []
         packages = []
         for p in package_requests:
-            if isinstance(p,str):
+            if isinstance(p,str) or isinstance(p,unicode):
                 mp = self.waptdb.packages_matching(p)
                 if mp:
                     packages.append(mp[-1])
@@ -2752,7 +2773,7 @@ class Wapt(object):
             inv['wapt'] = {}
             inv['softwares'] = setuphelpers.installed_softwares('')
             inv['packages'] = [p.as_dict() for p in self.waptdb.installed(include_errors=True).values()]
-
+            inv['update_status'] = json.loads(self.read_param('last_update_status','{"date": "", "running_tasks": [], "errors": [], "upgrades": []}'))
             if force:
                 inv['force']=True
 
@@ -2762,7 +2783,11 @@ class Wapt(object):
                     req.raise_for_status()
                 except Exception,e:
                     logger.warning('Unable to update server status : %s' % ensure_unicode(e))
-                return req.content
+                result = json.loads(req.content)
+                # force register if computer has not been registered or hostname has changed
+                if not result or not 'host' in result or result['host']['computer_fqdn'] <> setuphelpers.get_computername():
+                    self.register_computer()
+                return result
             else:
                 return json.dumps(inv,indent=True)
 
@@ -2981,7 +3006,11 @@ class Wapt(object):
                 # add quotes for command line
                 files_list = ['"%s"' % f for f in package_group[1]]
                 cmd_dict =  {'waptfile': ' '.join(files_list),'waptdir':package_group[0]}
-                print setuphelpers.run(self.upload_cmd % cmd_dict)
+                if package_group[0] == 'wapt-host':
+                    print setuphelpers.run(self.upload_cmd_host % cmd_dict)
+                else:
+                    print setuphelpers.run(self.upload_cmd % cmd_dict)
+
                 if package_group<>hosts:
                     if self.after_upload:
                         print 'Run after upload script...'
@@ -3205,10 +3234,10 @@ class Wapt(object):
 
         if not packagename:
             simplename = re.sub(r'[\s\(\)]+','',props['product'].lower())
-            packagename = '%s-%s' %  (self.config.get('global','default_package_prefix','tis'),simplename)
+            packagename = '%s-%s' %  (self.config.get('global','default_package_prefix'),simplename)
 
         if not directoryname:
-            directoryname = self.get_default_development_dir(packagename)
+            directoryname = self.get_default_development_dir(packagename,section='base')
 
         if not os.path.isdir(os.path.join(directoryname,'WAPT')):
             os.makedirs(os.path.join(directoryname,'WAPT'))
@@ -3246,7 +3275,7 @@ class Wapt(object):
             logger.info('control file already exists, skip create')
         return directoryname
 
-    def makehosttemplate(self,packagename='',depends=None,directoryname=''):
+    def make_host_template(self,packagename='',depends=None,directoryname=''):
         """Build a skeleton of WAPT package based on the properties of the supplied installer
             depends : list of package dependencies. If None, use currently explicitly installed packages
            Return the path of the skeleton
@@ -3261,7 +3290,7 @@ class Wapt(object):
             packagename = packagename.lower()
 
         if not directoryname:
-            directoryname = self.get_default_development_dir(packagename)
+            directoryname = self.get_default_development_dir(packagename,section='host')
 
         if not os.path.isdir(os.path.join(directoryname,'WAPT')):
             os.makedirs(os.path.join(directoryname,'WAPT'))
@@ -3344,19 +3373,32 @@ class Wapt(object):
             Return package entry or None"""
         return self.waptdb.packages_matching(packagename)
 
-    def get_default_development_dir(self,packagecond):
+    def get_default_development_dir(self,packagecond,section='base'):
         """Returns the default developement directory for package named "packagecond" based on default_sources_root and default_sources_suffix ini parameters*
             packagecond can be of the form "name (=version)" or a simple package name
         """
         packagename = REGEX_PACKAGE_CONDITION.match(packagecond).groupdict()['package']
-        return os.path.join(self.config.get('global','default_sources_root',os.getcwd()),packagename)+'-%s' % self.config.get('global','default_sources_suffix','wapt')
+        default_root = 'c:\\waptdev\\%(package)s-%(suffix)s'
+        suffix = self.config.get('global','default_sources_suffix')
+        root = self.config.get('global','default_sources_root')
+        if section == 'host':
+            if self.config.has_option('global','default_sources_root_host'):
+                root = self.config.get('global','default_sources_root_host')
+
+        if not '%(package)s' in root:
+            root = os.path.join(root,'%(package)s-%(suffix)s')
+        return root % {'package':packagename,'section':section,'suffix':suffix}
 
     def edit_package(self,packagename,target_directory='',ignore_local_sources=False):
         """Download an existing package from repositories into targetdirectory for modification
             if ignore_local_source is True, overwrite current local edited data if any.
             Return the the directory name of the package sources"""
         # check if already downloaded ...
-        devdir = self.get_default_development_dir(packagename)
+        p = self.is_available(packagename)
+        if p:
+            devdir = self.get_default_development_dir(p[-1].package,section=p[-1].section)
+        else:
+            devdir = self.get_default_development_dir(p[-1].package)
         if os.path.isdir(devdir):
             if not ignore_local_sources:
                 package=PackageEntry().load_control_from_wapt(devdir)
@@ -3364,16 +3406,28 @@ class Wapt(object):
                     return {'target':devdir,'source_dir':devdir,'package':package}
             else:
                 os.unlink(devdir)
-        return self.duplicate_package(packagename=packagename,newname=packagename,target_directory=target_directory,build=False)
+        if p:
+            return self.duplicate_package(packagename=p[-1].package,newname=p[-1].package,target_directory=target_directory,build=False)
+        else:
+            return self.duplicate_package(packagename=packagename,newname=packagename,target_directory=target_directory,build=False)
 
-    def edit_host(self,hostname,target_directory=''):
+    def edit_host(self,hostname,target_directory='',ignore_local_sources=False):
         """Download an host package from host repositories into targetdirectory for modification
             Return the the directory name of the package sources."""
         hostdate = self.repositories[-1].update_host(hostname)
         if hostdate:
-            return self.edit_package(packagename=hostname,target_directory=target_directory)
+            # check if already downloaded ...
+            devdir = self.get_default_development_dir(hostname,section='host')
+            if os.path.isdir(devdir):
+                if not ignore_local_sources:
+                    package=PackageEntry().load_control_from_wapt(devdir)
+                    if package.match(hostname):
+                        return {'target':devdir,'source_dir':devdir,'package':package}
+                else:
+                    os.unlink(devdir)
+            return self.duplicate_package(packagename=hostname,newname=hostname,target_directory=target_directory,build=False)
         else:
-            new_source = self.makehosttemplate(packagename=hostname,directoryname=target_directory)
+            new_source = self.make_host_template(packagename=hostname,directoryname=target_directory)
             return {'target':new_source,'source_dir':new_source,'package':PackageEntry().load_control_from_wapt(new_source)}
 
     def duplicate_package(self,packagename,newname=None,newversion='',target_directory='',
@@ -3389,7 +3443,11 @@ class Wapt(object):
 
         # suppose target directory
         if not target_directory:
-            target_directory = self.config.get('global','default_sources_root','')
+            p = self.is_available(packagename)
+            if p:
+                target_directory = self.get_default_development_dir(newname,section=p[-1].section)
+            else:
+                target_directory = self.get_default_development_dir(newname)
             if not target_directory:
                 target_directory = os.getcwd()
 
@@ -3402,7 +3460,11 @@ class Wapt(object):
         else:
             newname = newname.lower()
 
-        package_dev_dir = self.get_default_development_dir(newname)
+        p = self.is_available(packagename)
+        if p:
+            package_dev_dir = self.get_default_development_dir(newname,section=p[-1].section)
+        else:
+            package_dev_dir = self.get_default_development_dir(newname)
 
         result = {'target':package_dev_dir,'package':PackageEntry(),'source_dir':package_dev_dir}
 
@@ -3412,11 +3474,13 @@ class Wapt(object):
         # download the source package in cache
         if os.path.isdir(packagename):
             source_control = PackageEntry().load_control_from_wapt(packagename)
+            package_dev_dir = self.get_default_development_dir(newname,section=source_control.section)
             if packagename<>package_dev_dir:
                 shutil.copytree(packagename,package_dev_dir)
         elif os.path.isfile(packagename):
             source_filename = packagename
             source_control = PackageEntry().load_control_from_wapt(source_filename)
+            package_dev_dir = self.get_default_development_dir(newname,section=source_control.section)
             logger.info('  unzipping %s to directory %s' % (source_filename,package_dev_dir))
             if os.path.isdir(package_dev_dir):
                 raise Exception('Target directory "%s" for package source already exist' % package_dev_dir)
@@ -3426,6 +3490,7 @@ class Wapt(object):
             filenames = self.download_packages([packagename])
             source_filename = (filenames['downloaded'] or filenames['skipped'])[0]
             source_control = PackageEntry().load_control_from_wapt(source_filename)
+            package_dev_dir = self.get_default_development_dir(newname,section=source_control.section)
             logger.info('  unzipping %s to directory %s' % (source_filename,package_dev_dir))
             zip = ZipFile(source_filename,allowZip64=True)
             zip.extractall(path=package_dev_dir)

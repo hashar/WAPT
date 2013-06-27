@@ -3276,6 +3276,9 @@ class Wapt(object):
         return directoryname
 
     def make_host_template(self,packagename='',depends=None,directoryname=''):
+        self.make_group_template(packagename=packagename,depends=depends,directoryname=directoryname,section='host')
+
+    def make_group_template(self,packagename='',depends=None,directoryname='',section='group'):
         """Build a skeleton of WAPT package based on the properties of the supplied installer
             depends : list of package dependencies. If None, use currently explicitly installed packages
            Return the path of the skeleton
@@ -3294,7 +3297,10 @@ class Wapt(object):
 
         if not os.path.isdir(os.path.join(directoryname,'WAPT')):
             os.makedirs(os.path.join(directoryname,'WAPT'))
-        template = codecs.open(os.path.join(self.wapt_base_dir,'templates','setup_host_template.py'),encoding='utf8').read() % locals()
+        template_fn = os.path.join(self.wapt_base_dir,'templates','setup_%s_template.py' % section)
+        if not os.path.isfile(template_fn):
+            raise Exception("setup.py template %s doesn't exist" % template_fn)
+        template = codecs.open(template_fn,encoding='utf8').read() % locals()
         setuppy_filename = os.path.join(directoryname,'setup.py')
         if not os.path.isfile(setuppy_filename):
             codecs.open(setuppy_filename,'w',encoding='utf8').write(template)
@@ -3305,10 +3311,10 @@ class Wapt(object):
         entry = PackageEntry()
         if not os.path.isfile(control_filename):
             entry.priority = 'standard'
-            entry.section = 'host'
+            entry.section = section
             entry.version = '0'
             entry.architecture='all'
-            entry.description = 'Host package for %s ' % packagename
+            entry.description = '%s package for %s ' % (section,packagename)
             try:
                 entry.maintainer = ensure_unicode(win32api.GetUserNameEx(3))
             except:
@@ -3427,7 +3433,7 @@ class Wapt(object):
                     os.unlink(devdir)
             return self.duplicate_package(packagename=hostname,newname=hostname,target_directory=target_directory,build=False)
         else:
-            new_source = self.make_host_template(packagename=hostname,directoryname=target_directory)
+            new_source = self.make_host_template(packagename=hostname,directoryname=target_directory,depends='')
             return {'target':new_source,'source_dir':new_source,'package':PackageEntry().load_control_from_wapt(new_source)}
 
     def duplicate_package(self,packagename,newname=None,newversion='',target_directory='',

@@ -511,7 +511,7 @@ def main():
                         print u"You can build and upload the WAPT package by launching\n  %s build-upload %s" % (sys.argv[0],result)
                     os.startfile(result)
 
-            elif action=='make-host-template':
+            elif action in ('make-host-template','make-group-template'):
                 result = mywapt.make_host_template(*args[1:])
                 if options.json_output:
                     jsonresult['result'] = result

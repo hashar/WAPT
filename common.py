@@ -3227,7 +3227,7 @@ class Wapt(object):
              directoryname = os.path.abspath(directoryname)
 
         installer = os.path.basename(installer_path)
-        if not os.path.isfile(installer):
+        if not os.path.isfile(installer_path):
             raise Exception('The parameter "%s" is not a file, it must be the path to an .exe or .msi installer' % installer_path)
         props = self.getproductprops(installer_path)
         silentflags = self.getsilentflags(installer_path)

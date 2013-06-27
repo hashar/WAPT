@@ -512,7 +512,10 @@ def main():
                     os.startfile(result)
 
             elif action in ('make-host-template','make-group-template'):
-                result = mywapt.make_host_template(*args[1:])
+                if action == 'make-host-template':
+                    result = mywapt.make_host_template(*args[1:])
+                else:
+                    result = mywapt.make_group_template(*args[1:])
                 if options.json_output:
                     jsonresult['result'] = result
                 else:

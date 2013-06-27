@@ -3276,7 +3276,7 @@ class Wapt(object):
         return directoryname
 
     def make_host_template(self,packagename='',depends=None,directoryname=''):
-        self.make_group_template(packagename=packagename,depends=depends,directoryname=directoryname,section='host')
+        return self.make_group_template(packagename=packagename,depends=depends,directoryname=directoryname,section='host')
 
     def make_group_template(self,packagename='',depends=None,directoryname='',section='group'):
         """Build a skeleton of WAPT package based on the properties of the supplied installer

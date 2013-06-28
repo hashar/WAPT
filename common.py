@@ -570,6 +570,9 @@ class WaptBaseDB(object):
     def __init__(self,dbpath):
         self._db_version = None
         self.dbpath = dbpath
+        self.connect()
+
+    def connect(self):
         if not os.path.isfile(self.dbpath):
             dirname = os.path.dirname(self.dbpath)
             if os.path.isdir (dirname)==False:
@@ -602,14 +605,14 @@ class WaptBaseDB(object):
                 if val:
                     self._db_version = val[0]
                 else:
-                    self._db_version = '0000'
+                    self._db_version = self.curr_db_version
             except Exception,e:
                 logger.critical(u'Unable to get DB version (%s), upgrading' % ensure_unicode(e))
                 self.db.rollback()
                 # pre-params version
-                self._db_version = '0000'
+                self._db_version = self.curr_db_version
                 self.upgradedb()
-                self.db.execute('insert into wapt_params(name,value,create_date) values (?,?,?)',('db_version','0000',datetime2isodate()))
+                self.db.execute('insert into wapt_params(name,value,create_date) values (?,?,?)',('db_version',self.curr_db_version,datetime2isodate()))
                 self.db.commit()
         return self._db_version
 
@@ -674,8 +677,6 @@ class WaptBaseDB(object):
                    for idx, value in enumerate(row)) for row in cur.fetchall()]
         return (rv[0] if rv else None) if one else rv
 
-
-
 class WaptSessionDB(WaptBaseDB):
     def __init__(self,username=''):
         if not username:
@@ -684,6 +685,9 @@ class WaptSessionDB(WaptBaseDB):
         self.dbpath = os.path.join(setuphelpers.application_data(),'wapt','waptsession.sqlite')
         super(WaptSessionDB,self).__init__(self.dbpath)
 
+    def upgradedb(self,force=False):
+        """Update local database structure to current version if rules are described in db_upgrades"""
+        self.db_version = curr_db_version
 
     def initdb(self):
         """Initialize current sqlite db with empty table and return structure version"""
@@ -703,7 +707,7 @@ class WaptSessionDB(WaptBaseDB):
           )"""
                         )
         self.db.execute("""
-        create index idx_sessionsetup_username on wapt_sessionsetup(username,package);""")
+        create index if not exists idx_sessionsetup_username on wapt_sessionsetup(username,package);""")
 
         self.db.execute("""
         create table if not exists wapt_params (
@@ -1614,6 +1618,7 @@ class Wapt(object):
             os.makedirs(self.dbdir)
         self.dbpath = os.path.join(self.dbdir,'waptdb.sqlite')
         self._waptdb = None
+        self._waptsessiondb = None
         #
         if self.config.has_option('global','private_key'):
             self.private_key = self.config.get('global','private_key')
@@ -1719,6 +1724,16 @@ class Wapt(object):
                 logger.info(u'Upgrading db structure from %s to %s' % (self._waptdb.db_version,self._waptdb.curr_db_version))
                 self._waptdb.upgradedb()
         return self._waptdb
+
+    @property
+    def waptsessiondb(self):
+        """Wapt user session database"""
+        if not self._waptsessiondb:
+            self._waptsessiondb = WaptSessionDB(username=setuphelpers.get_current_user())
+            if self._waptsessiondb.db_version < self._waptsessiondb.curr_db_version:
+                logger.info(u'Upgrading db structure from %s to %s' % (self._waptsessiondb.db_version,self._waptsessiondb.curr_db_version))
+                self._waptsessiondb.upgradedb()
+        return self._waptsessiondb
 
     @property
     def wapt_repourl(self):
@@ -3686,7 +3701,9 @@ if __name__ == '__main__':
     w = Wapt(config=cfg)
     """
     w = Wapt(config_filename='c:/wapt/wapt-get.ini')
-    w.edit_host('testnuit.tranquilit.local')
+    sdb = w.waptsessiondb()
+
+    #w.edit_host('testnuit.tranquilit.local')
 
     #w.create_wapt_setup('C:\\test\\','c:\\private\\test2.crt')
 

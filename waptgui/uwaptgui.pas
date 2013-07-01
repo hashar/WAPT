@@ -9,7 +9,7 @@ uses
   vte_json, LSControls, Forms,
   Controls, Graphics, Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus,
   EditBtn, fpJson, jsonparser, superobject,
-  UniqueInstance, VirtualTrees, VarPyth;
+  UniqueInstance, VirtualTrees, VarPyth, windows, ActiveX;
 
 type
 
@@ -26,6 +26,10 @@ type
     ActEvaluateVar: TAction;
     ActEditHostPackage: TAction;
     actHostSelectAll: TAction;
+    ActAddRemoveOptionIniFile: TAction;
+    ActHostSearchPackage: TAction;
+    ActHostsAddPackages: TAction;
+    ActHostsCopy: TAction;
     ActRegisterHost: TAction;
     ActSearchHost: TAction;
     ActUpgrade: TAction;
@@ -36,21 +40,24 @@ type
     butInitWapt: TButton;
     butRun: TButton;
     butSearchPackages: TButton;
-    butSearchPackages2: TButton;
     Button1: TButton;
     Button2: TButton;
     Button6: TButton;
     Button7: TButton;
     Button8: TButton;
+    cbSearchHost: TCheckBox;
+    cbSearchPackages: TCheckBox;
+    cbSearchDMI: TCheckBox;
+    cbSearchSoftwares: TCheckBox;
     cbShowLog: TCheckBox;
-    CheckBox1: TCheckBox;
+    cbSearchAll: TCheckBox;
+    cbShowHostPackagesSoft: TCheckBox;
+    cbShowHostPackagesGroup: TCheckBox;
+    CheckBoxMaj: TCheckBox;
     CheckBox_error: TCheckBox;
-    EdSearch2: TEdit;
     EdSearchHost: TEdit;
     EdRun: TEdit;
     EdSearch: TEdit;
-    GridHostPackages1: TVirtualJSONListView;
-    GridHostPackages2: TVirtualJSONListView;
     GridHosts: TVirtualJSONListView;
     GridhostAttribs: TVirtualJSONInspector;
     Label5: TLabel;
@@ -69,6 +76,7 @@ type
     MenuItem18: TMenuItem;
     MenuItem19: TMenuItem;
     MenuItem2: TMenuItem;
+    MenuItem20: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
     MenuItem5: TMenuItem;
@@ -80,7 +88,7 @@ type
     HostPages: TPageControl;
     Panel1: TPanel;
     Panel10: TPanel;
-    Panel11: TPanel;
+    Panel2: TPanel;
     Panel3: TPanel;
     Panel4: TPanel;
     Panel5: TPanel;
@@ -98,20 +106,23 @@ type
     pgPackages: TTabSheet;
     pgSoftwares: TTabSheet;
     pgHostPackage: TTabSheet;
-    TabSheet3: TTabSheet;
-    TabSheet4: TTabSheet;
     testedit: TSynEdit;
     jsonlog: TVirtualJSONInspector;
     UniqueInstance1: TUniqueInstance;
     GridPackages: TVirtualJSONListView;
     GridHostPackages: TVirtualJSONListView;
     GridHostSoftwares: TVirtualJSONListView;
+    procedure ActAddRemoveOptionIniFileExecute(Sender: TObject);
     procedure ActCreateCertificateExecute(Sender: TObject);
+    procedure ActCreateWaptSetupExecute(Sender: TObject);
     procedure ActEditHostPackageExecute(Sender: TObject);
     procedure ActEditpackageExecute(Sender: TObject);
     procedure ActEvaluateExecute(Sender: TObject);
     procedure ActEvaluateVarExecute(Sender: TObject);
     procedure ActExecCodeExecute(Sender: TObject);
+    procedure ActHostsAddPackagesExecute(Sender: TObject);
+    procedure ActHostsCopyExecute(Sender: TObject);
+    procedure ActHostSearchPackageExecute(Sender: TObject);
     procedure actHostSelectAllExecute(Sender: TObject);
     procedure ActInstallExecute(Sender: TObject);
     procedure ActRegisterHostExecute(Sender: TObject);
@@ -120,14 +131,25 @@ type
     procedure ActSearchPackageExecute(Sender: TObject);
     procedure ActUpdateExecute(Sender: TObject);
     procedure ActUpgradeExecute(Sender: TObject);
+    procedure cbSearchAllChange(Sender: TObject);
     procedure cbShowLogClick(Sender: TObject);
+    procedure CheckBoxMajChange(Sender: TObject);
+    procedure CheckBox_errorChange(Sender: TObject);
     procedure EdRunKeyPress(Sender: TObject; var Key: char);
+    procedure EdSearch2KeyPress(Sender: TObject; var Key: char);
+    procedure EdSearchHostKeyPress(Sender: TObject; var Key: char);
     procedure EdSearchKeyPress(Sender: TObject; var Key: char);
     procedure FormCreate(Sender: TObject);
     procedure GridHostsChange(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure GridHostsChecked(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure GridHostsGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Data: TJSONData; Column: TColumnIndex; TextType: TVSTTextType;
       var CellText: String);
+    procedure GridHostsGetUserClipboardFormats(Sender: TBaseVirtualTree;
+      var Formats: TFormatEtcArray);
+    procedure GridHostsRenderOLEData(Sender: TBaseVirtualTree;
+      const FormatEtcIn: TFormatEtc; out Medium: TStgMedium;
+      ForClipboard: Boolean; var Result: HRESULT);
     procedure GridPackagesCompareNodes(Sender: TBaseVirtualTree; Node1,
       Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
     procedure GridPackagesHeaderClick(Sender: TVTHeader;
@@ -152,7 +174,7 @@ var
   VisWaptGUI: TVisWaptGUI;
 
 implementation
-uses LCLIntf,tisstrings,soutils,waptcommon,uVisCreateKey,dmwaptpython,uviseditpackage;
+uses LCLIntf,tisstrings,soutils,waptcommon,uVisCreateKey,uVisCreateWaptSetup,uvisOptionIniFile,dmwaptpython,uviseditpackage;
 {$R *.lfm}
 
 { TVisWaptGUI }
@@ -162,10 +184,15 @@ var
   js : ISuperObject;
 begin
   js := SO(ListView.GetData(N).AsJSON);
-  if FieldName='' then
-    result := js.AsJSon
+  if js<>Nil then
+  begin
+    if FieldName='' then
+      result := js.AsJSon
+    else
+      result := js.S[FieldName];
+  end
   else
-    result := js.S[FieldName];
+    Result:='';
 end;
 
 procedure SetValue(ListView:TVirtualJSONListView;N:PVirtualNode;FieldName:String;Value:String);
@@ -184,10 +211,33 @@ begin
 
 end;
 
+procedure TVisWaptGUI.CheckBoxMajChange(Sender: TObject);
+begin
+  ActHostSearchPackage.Execute;
+end;
+
+procedure TVisWaptGUI.CheckBox_errorChange(Sender: TObject);
+begin
+  ActHostSearchPackage.Execute;
+end;
+
 procedure TVisWaptGUI.EdRunKeyPress(Sender: TObject; var Key: char);
 begin
   if Key=#13 then
     ActEvaluate.Execute;
+end;
+
+procedure TVisWaptGUI.EdSearch2KeyPress(Sender: TObject; var Key: char);
+begin
+end;
+
+procedure TVisWaptGUI.EdSearchHostKeyPress(Sender: TObject; var Key: char);
+begin
+  if Key=#13 then
+  begin
+    EdSearchHost.SelectAll;
+    ActSearchHost.Execute;
+  end;
 end;
 
 procedure TVisWaptGUI.EdSearchKeyPress(Sender: TObject; var Key: char);
@@ -313,16 +363,17 @@ begin
     repeat
       if ShowModal=mrOk then
       try
+        DMPython.PythonEng.ExecString('import waptdevutils');
         params :='';
-        params := params+format('orgname="%s",',[edOrgName.text]);
-        params := params+format('destdir="%s",',[DirectoryCert.Directory]);
-        params := params+format('country="%s",',[edCountry.Text]);
-        params := params+format('locality="%s",',[edLocality.Text]);
-        params := params+format('organization="%s",',[edOrganization.Text]);
-        params := params+format('unit="%s",',[edUnit.Text]);
-        params := params+format('commonname="%s",',[edCommonName.Text]);
-        params := params+format('email="%s",',[edEmail.Text]);
-        result := DMPython.RunJSON(format('mywapt.create_self_signed_key(%s)',[params]),jsonlog);
+        params := params+format('orgname=r"%s",',[edOrgName.text]);
+        params := params+format('destdir=r"%s",',[DirectoryCert.Directory]);
+        params := params+format('country=r"%s",',[edCountry.Text]);
+        params := params+format('locality=r"%s",',[edLocality.Text]);
+        params := params+format('organization=r"%s",',[edOrganization.Text]);
+        params := params+format('unit=r"%s",',[edUnit.Text]);
+        params := params+format('commonname=r"%s",',[edCommonName.Text]);
+        params := params+format('email=r"%s",',[edEmail.Text]);
+        result := DMPython.RunJSON(format('waptdevutils.create_self_signed_key(mywapt,%s)',[params]),jsonlog);
         done := FileExists(result.S['pem_filename']);
         if done then
            ShowMessageFmt('La clé %s a été créée avec succès',[result.S['pem_filename']]);
@@ -339,6 +390,55 @@ begin
   finally
     Free;
   end;
+end;
+
+procedure TVisWaptGUI.ActAddRemoveOptionIniFileExecute(Sender: TObject);
+begin
+  with TVisOptionIniFile.Create(self) do
+  try
+    if ShowModal=mrOK then
+    try
+
+    except
+    end;
+
+  finally
+  end;
+end;
+
+procedure TVisWaptGUI.ActCreateWaptSetupExecute(Sender: TObject);
+var
+  params:String;
+  result:ISuperObject;
+  done : Boolean;
+begin
+  with TVisCreateWaptSetup.Create(self) do
+  try
+    repeat
+      if ShowModal=mrOK then
+      begin
+        try
+          DMPython.PythonEng.ExecString('import waptdevutils');
+          params :='';
+          params := params+format('default_public_cert=r"%s",',[fnPublicCert.FileName]);
+          params := params+format('default_repo_url=r"%s",',[edRepoUrl.text]);
+          params := params+format('company=r"%s",',[edOrgName.Text]);
+          result := DMPython.RunJSON(format('waptdevutils.create_wapt_setup(mywapt,%s)',[params]),jsonlog);
+          done := FileExists(result.S['pem_filename']);
+        except
+          on e:Exception do
+          begin
+            ShowMessage('Erreur à la création du waptsetup.exe: '+e.Message);
+            done := False;
+          end;
+        end;
+      end
+      else
+        done := True;
+      until done;
+    finally
+      free;
+    end;
 end;
 
 procedure TVisWaptGUI.ActEditHostPackageExecute(Sender: TObject);
@@ -392,6 +492,20 @@ begin
   DMPython.PythonEng.ExecString(testedit.Lines.Text);
 end;
 
+procedure TVisWaptGUI.ActHostsAddPackagesExecute(Sender: TObject);
+begin
+
+end;
+
+procedure TVisWaptGUI.ActHostsCopyExecute(Sender: TObject);
+begin
+  GridHosts.CopyToClipBoard;
+end;
+
+procedure TVisWaptGUI.ActHostSearchPackageExecute(Sender: TObject);
+begin
+end;
+
 procedure TVisWaptGUI.actHostSelectAllExecute(Sender: TObject);
 begin
   TVirtualJSONListView(GridHosts).SelectAll(False);
@@ -419,13 +533,45 @@ end;
 
 procedure TVisWaptGUI.ActSearchHostExecute(Sender: TObject);
 var
-  hosts:String;
-  url:String='json/host_list';
+  req,hosts,filter:String;
+  urlParams:ISuperObject;
+const
+    url:String='json/host_list';
 begin
-  if CheckBox_error.Checked = True then
-    url:= url + '?error=true';
 
-  hosts := WAPTServerJsonGet(url,[]).AsJson;
+  urlParams := TSuperObject.create(stArray);
+
+
+  if CheckBox_error.Checked = True then
+   urlParams.AsArray.Add('package_error=true');
+
+  if CheckBoxMaj.Checked = True then
+    urlParams.AsArray.Add('need_upgrade=true');
+
+  if EdSearchHost.Text <> '' then
+     urlParams.AsArray.Add('q='+EdSearchHost.Text);
+
+  if cbSearchAll.Checked = False then
+  begin
+    if cbSearchHost.Checked = True then
+      filter:= filter + 'host,';
+
+    if cbSearchDMI.Checked = True then
+      filter:= filter + 'dmi,';
+
+    if cbSearchSoftwares.Checked = True then
+      filter:= filter + 'softwares,';
+
+    if cbSearchPackages.Checked = True then
+      filter:= filter + 'packages,';
+
+    urlParams.AsArray.Add('filter='+filter);
+  end;
+
+
+  req := url +'?'+Join('&',urlParams);
+
+  hosts := WAPTServerJsonGet(req,[]).AsJson;
   GridLoadData(GridHosts,hosts);
 end;
 
@@ -451,6 +597,21 @@ end;
 procedure TVisWaptGUI.ActUpgradeExecute(Sender: TObject);
 begin
   DMPython.RunJSON('mywapt.upgrade()',jsonlog);
+end;
+
+procedure TVisWaptGUI.cbSearchAllChange(Sender: TObject);
+begin
+     cbSearchDMI.Checked:=cbSearchAll.Checked;
+     cbSearchDMI.Enabled:= not cbSearchAll.Checked;
+
+     cbSearchSoftwares.Checked:=cbSearchAll.Checked;
+     cbSearchSoftwares.Enabled:= not cbSearchAll.Checked;
+
+     cbSearchPackages.Checked:=cbSearchAll.Checked;
+     cbSearchPackages.Enabled:= not cbSearchAll.Checked;
+
+     cbSearchHost.Checked:=cbSearchAll.Checked;
+     cbSearchHost.Enabled:= not cbSearchAll.Checked;
 end;
 
 procedure TVisWaptGUI.FormCreate(Sender: TObject);
@@ -512,6 +673,13 @@ begin
   UpdateHostPages(Sender);
 end;
 
+procedure TVisWaptGUI.GridHostsChecked(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+begin
+
+end;
+
+
 procedure TVisWaptGUI.GridHostsGetText(Sender: TBaseVirtualTree;
   Node: PVirtualNode; Data: TJSONData; Column: TColumnIndex;
   TextType: TVSTTextType; var CellText: String);
@@ -520,6 +688,18 @@ var
 begin
   js := SO(Data.AsJSON);
   CellText:=js.S[TVirtualJSONListViewColumn(GridHosts.Header.Columns[column]).PropertyName];
+end;
+
+procedure TVisWaptGUI.GridHostsGetUserClipboardFormats(
+  Sender: TBaseVirtualTree; var Formats: TFormatEtcArray);
+begin
+end;
+
+procedure TVisWaptGUI.GridHostsRenderOLEData(Sender: TBaseVirtualTree;
+  const FormatEtcIn: TFormatEtc; out Medium: TStgMedium; ForClipboard: Boolean;
+  var Result: HRESULT);
+begin
+
 end;
 
 procedure TVisWaptGUI.PythonOutputSendData(Sender: TObject; const Data: AnsiString

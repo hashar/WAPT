@@ -1873,6 +1873,31 @@ class Wapt(object):
 
         return None
 
+    def upload_package(self,cmd_dict,is_host=False):
+      if cmd_dict['waptdir'] == "wapt-host" or is_host:
+        if self.upload_cmd_host:
+          cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
+          return setuphelpers.run(mywapt.upload_cmd_host % cmd_dict)
+        else:
+           for file in cmd_dict['waptfile']:
+              file = file.replace('"','')
+              req = requests.post("%s/upload_host" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies)
+              req.raise_for_status()
+           return req.content
+
+      else:
+        if self.upload_cmd:
+          cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
+          return setuphelpers.run(mywapt.upload_cmd % cmd_dict)
+        else:
+          for file in cmd_dict['waptfile']:
+            file = file.replace('"','')
+            req = requests.post("%s/upload_package" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies)
+            req.raise_for_status()
+          return req.content
+
+
+
     def check_install_running(self,max_ttl=60):
         """ Check if an install is in progress, return list of pids of install in progress
             Kill old stucked wapt-get processes/children and update db status
@@ -3021,11 +3046,8 @@ class Wapt(object):
             if package_group[1]:
                 # add quotes for command line
                 files_list = ['"%s"' % f for f in package_group[1]]
-                cmd_dict =  {'waptfile': ' '.join(files_list),'waptdir':package_group[0]}
-                if package_group[0] == 'wapt-host':
-                    print setuphelpers.run(self.upload_cmd_host % cmd_dict)
-                else:
-                    print setuphelpers.run(self.upload_cmd % cmd_dict)
+                cmd_dict =  {'waptfile': files_list,'waptdir':package_group[0]}
+                print self.upload_package(cmd_dict)
 
                 if package_group<>hosts:
                     if self.after_upload:

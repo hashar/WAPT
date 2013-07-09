@@ -1877,22 +1877,22 @@ class Wapt(object):
       if cmd_dict['waptdir'] == "wapt-host" or is_host:
         if self.upload_cmd_host:
           cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
-          return setuphelpers.run(mywapt.upload_cmd_host % cmd_dict)
+          return setuphelpers.run(self.upload_cmd_host % cmd_dict)
         else:
            for file in cmd_dict['waptfile']:
               file = file.replace('"','')
-              req = requests.post("%s/upload_host" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies)
+              req = requests.post("%s/upload_host" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies,verify=False)
               req.raise_for_status()
            return req.content
 
       else:
         if self.upload_cmd:
           cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
-          return setuphelpers.run(mywapt.upload_cmd % cmd_dict)
+          return setuphelpers.run(self.upload_cmd % cmd_dict)
         else:
           for file in cmd_dict['waptfile']:
             file = file.replace('"','')
-            req = requests.post("%s/upload_package" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies)
+            req = requests.post("%s/upload_package" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies,verify=False)
             req.raise_for_status()
           return req.content
 
@@ -2797,7 +2797,7 @@ class Wapt(object):
         if force:
             inv['force']=True
         if self.wapt_server:
-            req = requests.post("%s/add_host" % (self.wapt_server,),json.dumps(inv),proxies=self.proxies)
+            req = requests.post("%s/add_host" % (self.wapt_server,),json.dumps(inv),proxies=self.proxies,verify=False)
             req.raise_for_status()
             return req.content
         else:
@@ -2819,7 +2819,7 @@ class Wapt(object):
                 inv['force']=True
 
             if self.wapt_server:
-                req = requests.post("%s/update_host" % (self.wapt_server,),json.dumps(inv),proxies=self.proxies)
+                req = requests.post("%s/update_host" % (self.wapt_server,),json.dumps(inv),proxies=self.proxies,verify=False)
                 try:
                     req.raise_for_status()
                 except Exception,e:

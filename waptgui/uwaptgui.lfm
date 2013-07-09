@@ -14,9 +14,9 @@ object VisWaptGUI: TVisWaptGUI
     Height = 622
     Top = 0
     Width = 1173
-    ActivePage = pgInventory
+    ActivePage = TabSheet2
     Align = alClient
-    TabIndex = 0
+    TabIndex = 1
     TabOrder = 0
     object pgInventory: TTabSheet
       Caption = 'Inventaire'
@@ -741,6 +741,7 @@ object VisWaptGUI: TVisWaptGUI
       Caption = 'Sources'
       ClientHeight = 596
       ClientWidth = 1165
+      TabVisible = False
       inline testedit: TSynEdit
         Left = 0
         Height = 562
@@ -1404,6 +1405,7 @@ object VisWaptGUI: TVisWaptGUI
     object ActInstall: TAction
       Caption = 'Installer'
       OnExecute = ActInstallExecute
+      OnUpdate = ActInstallUpdate
     end
     object ActSearchPackage: TAction
       Caption = 'Rechercher'
@@ -1412,10 +1414,12 @@ object VisWaptGUI: TVisWaptGUI
     object ActRemove: TAction
       Caption = 'Désinstaller le paquet'
       OnExecute = ActRemoveExecute
+      OnUpdate = ActRemoveUpdate
     end
     object ActEditpackage: TAction
       Caption = 'Editer le paquet'
       OnExecute = ActEditpackageExecute
+      OnUpdate = ActEditpackageUpdate
     end
     object ActUpdate: TAction
       Caption = 'Mise à jour des paquets disponibles'
@@ -1475,12 +1479,30 @@ object VisWaptGUI: TVisWaptGUI
       Caption = 'Copier'
       OnExecute = ActHostsCopyExecute
     end
+    object ActHostsDelete: TAction
+      Category = 'hosts'
+      Caption = 'ActHostsDelete'
+      OnExecute = ActHostsDeleteExecute
+    end
+    object ActDeletePackage: TAction
+      Caption = 'ActDeletePackage'
+      OnExecute = ActDeletePackageExecute
+      OnUpdate = ActDeletePackageUpdate
+    end
+    object ActAdvancedMode: TAction
+      Caption = 'ActAdvancedMode'
+      OnExecute = ActAdvancedModeExecute
+    end
   end
   object PopupMenuPackages: TPopupMenu
     left = 148
     top = 150
     object MenuItem1: TMenuItem
       Action = ActInstall
+    end
+    object MenuItem22: TMenuItem
+      Action = ActDeletePackage
+      Caption = 'Supprimer'
     end
     object MenuItem2: TMenuItem
       Action = ActRemove
@@ -1541,6 +1563,10 @@ object VisWaptGUI: TVisWaptGUI
       object MenuItem17: TMenuItem
         Action = ActCreateWaptSetup
       end
+      object MenuItem23: TMenuItem
+        Action = ActAdvancedMode
+        Caption = 'Mode Avancé'
+      end
     end
   end
   object PopupMenuHosts: TPopupMenu
@@ -1551,6 +1577,10 @@ object VisWaptGUI: TVisWaptGUI
     end
     object MenuItem20: TMenuItem
       Action = ActHostsCopy
+    end
+    object MenuItem21: TMenuItem
+      Action = ActHostsDelete
+      Caption = 'Supprimer'
     end
     object MenuItem19: TMenuItem
       Action = actHostSelectAll

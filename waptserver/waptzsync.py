@@ -157,7 +157,7 @@ for repoPackage in repoPackages:
     elif len(matchPackage) > 1: 
         if not [ x for x in matchPackage if repoPackage.version in x.version ]:
             packagesToUpgrade.append(repoPackage)
-    elif donwload_new_packages.lower in [ "yes", "oui", "y", "o" ]:
+    elif donwload_new_packages.lower() in [ "yes", "oui", "y", "o" ]:
         newPackages.append(repoPackage)
     else:
         print "New package: "+repoPackage.package
@@ -177,4 +177,4 @@ if packagesToUpgrade or newPackages:
     
     
 
-os.system('chmod 644 %s*'%wapt_dir)
+os.system('chmod 664 %s*'%wapt_dir)

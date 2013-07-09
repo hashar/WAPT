@@ -28,14 +28,15 @@ unit tiscommon;
 interface
 
 uses
-  interfaces,Classes, SysUtils,tisstrings,windows,jwawintype;
+  interfaces,Classes, SysUtils,tisstrings,windows,jwawintype, wininet, Dialogs;
 
 Function  Wget(const fileURL, DestFileName: Utf8String): boolean;
 Function  Wget_try(const fileURL: Utf8String): boolean;
 function  httpGetString(url: string): Utf8String;
 
 procedure httpPostData(const UserAgent: string; const Server: string; const Resource: string; const Data: AnsiString);
-
+function SetToIgnoreCerticateErrors(oRequestHandle:HINTERNET; var aErrorMsg: string): Boolean;
+function GetWinInetError(ErrorCode:Cardinal): string;
 Procedure UnzipFile(ZipFilePath,OutputPath:Utf8String);
 Procedure AddToUserPath(APath:Utf8String);
 procedure AddToSystemPath(APath:Utf8String);
@@ -99,10 +100,8 @@ type
 const
   ssPendingStates = [ssStartPending, ssStopPending, ssContinuePending, ssPausePending];
 
-
 function UserInGroup(Group :DWORD) : Boolean;
 function IsAdminLoggedOn: Boolean;
-
 function ProcessExists(ExeFileName: string): boolean;
 function KillTask(ExeFileName: string): integer;
 function CheckOpenPort(dwPort : Word; ipAddressStr:AnsiString;timeout:integer=5):boolean;
@@ -128,8 +127,8 @@ const
 
 implementation
 
-uses registry,strutils,FileUtil,Process,WinInet,zipper,
-    shlobj,winsock,JwaTlHelp32,jwalmwksta,jwalmapibuf,JwaWinBase,jwalmaccess,jwalmcons,jwalmerr,JwaWinNT,jwawinuser;
+uses registry,strutils,FileUtil,Process,zipper,
+    shlobj,winsock,JwaTlHelp32,jwalmwksta,jwalmapibuf,JwaWinBase,jwalmaccess,jwalmcons,jwalmerr,JwaWinNT,jwawinuser,IdURI;
 
 function IsAdminLoggedOn: Boolean;
 { Returns True if the logged-on user is a member of the Administrators local
@@ -234,25 +233,53 @@ end;
 function httpGetString(
     url: string): Utf8String;
 var
-  GlobalhInet,hFile: HINTERNET;
+  GlobalhInet,hFile,hConnect: HINTERNET;
   localFile: File;
   buffer: array[1..1024] of byte;
-  bytesRead: DWORD;
+  bytesRead,dwError,port : DWORD;
   pos:integer;
   dwindex,dwcodelen,dwread,dwNumber: cardinal;
   dwcode : array[1..20] of char;
   res    : pchar;
+  error: String;
+  uri :TIdURI;
 
 begin
   result := '';
   GlobalhInet:=Nil;
   hFile:=Nil;
+
   GlobalhInet := InternetOpen('wapt',
       INTERNET_OPEN_TYPE_PRECONFIG,nil,nil,0);
   try
-    hFile := InternetOpenURL(GlobalhInet,PChar(url),nil,0,
-      INTERNET_FLAG_IGNORE_CERT_CN_INVALID or INTERNET_FLAG_NO_CACHE_WRITE
-      or INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_RELOAD,0);
+    uri := TIdURI.Create(url);
+
+    if (uri.Protocol='https') then
+    BEGIN
+      if uri.Port<>'' then
+        port := StrToInt(uri.Port)
+      else
+        port := INTERNET_DEFAULT_HTTPS_PORT;
+      hConnect := InternetConnect(GlobalhInet, PChar(uri.Host), port, nil, nil, INTERNET_SERVICE_HTTP, 0, 0);
+        //make the request
+      hFile := HttpOpenRequest(hConnect, 'GET', PChar(uri.Path+uri.document+'?'+uri.Params ), HTTP_VERSION, '', nil, INTERNET_FLAG_SECURE or
+        INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_RELOAD, 0);
+      //send the GET request
+      if not HttpSendRequest(hFile, nil, 0, nil, 0) then
+      begin
+        ErrorCode:=GetLastError;
+        if (ErrorCode = ERROR_INTERNET_INVALID_CA) then
+        begin
+          SetToIgnoreCerticateErrors(hFile, url);
+          HttpSendRequest(hFile, nil, 0, nil, 0);
+        end;
+      end;
+    end
+
+    else
+      hFile := InternetOpenURL(GlobalhInet,PChar(url),nil,0, INTERNET_FLAG_NO_CACHE_WRITE
+        or INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_RELOAD,0);
+
     if Assigned(hFile) then
     try
       dwIndex  := 0;
@@ -279,14 +306,59 @@ begin
         InternetCloseHandle(hFile);
     end
     else
-       raise Exception.Create('Unable to download: "'+URL+'", connection refused');
+       raise Exception.Create('Unable to download: "'+URL+'" '+GetWinInetError(GetLastError));
 
   finally
+    uri.Free;
     if Assigned(GlobalhInet) then
       InternetCloseHandle(GlobalhInet);
   end;
 end;
 
+function GetWinInetError(ErrorCode:Cardinal): string;
+const
+   winetdll = 'wininet.dll';
+var
+  Len: Integer;
+  Buffer: PChar;
+begin
+  Len := FormatMessage(
+  FORMAT_MESSAGE_FROM_HMODULE or FORMAT_MESSAGE_FROM_SYSTEM or
+  FORMAT_MESSAGE_ALLOCATE_BUFFER or FORMAT_MESSAGE_IGNORE_INSERTS or  FORMAT_MESSAGE_ARGUMENT_ARRAY,
+  Pointer(GetModuleHandle(winetdll)), ErrorCode, 0, @Buffer, SizeOf(Buffer), nil);
+  try
+    while (Len > 0) and {$IFDEF UNICODE}(CharInSet(Buffer[Len - 1], [#0..#32, '.'])) {$ELSE}(Buffer[Len - 1] in [#0..#32, '.']) {$ENDIF} do Dec(Len);
+    SetString(Result, Buffer, Len);
+  finally
+    LocalFree(HLOCAL(Buffer));
+  end;
+end;
+
+function SetToIgnoreCerticateErrors(oRequestHandle:HINTERNET; var aErrorMsg: string): Boolean;
+var
+  vDWFlags: DWord;
+  vDWFlagsLen: DWord;
+begin
+  Result := False;
+  try
+    vDWFlagsLen := SizeOf(vDWFlags);
+    if not InternetQueryOption(oRequestHandle, INTERNET_OPTION_SECURITY_FLAGS, @vDWFlags, vDWFlagsLen) then begin
+      ShowMessage(IntToStr(GetLastError()));
+      aErrorMsg := 'Internal error in SetToIgnoreCerticateErrors when trying to get wininet flags.' + GetWininetError(GetLastError);
+      Exit;
+    end;
+    vDWFlags := vDWFlags or SECURITY_FLAG_IGNORE_UNKNOWN_CA or SECURITY_FLAG_IGNORE_CERT_DATE_INVALID or SECURITY_FLAG_IGNORE_CERT_CN_INVALID or SECURITY_FLAG_IGNORE_REVOCATION;
+    if not InternetSetOption(oRequestHandle, INTERNET_OPTION_SECURITY_FLAGS, @vDWFlags, vDWFlagsLen) then begin
+      aErrorMsg := 'Internal error in SetToIgnoreCerticateErrors when trying to set wininet INTERNET_OPTION_SECURITY_FLAGS flag .' + GetWininetError(GetLastError);
+      Exit;
+    end;
+    Result := True;
+  except
+    on E: Exception do begin
+      aErrorMsg := 'Unknown error in SetToIgnoreCerticateErrors.' + E.Message;
+    end;
+  end;
+end;
 
 procedure httpPostData(const UserAgent: string; const Server: string; const Resource: string; const Data: AnsiString);
 var

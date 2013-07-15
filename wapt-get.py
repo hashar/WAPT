@@ -77,7 +77,7 @@ action is either :
   update-status     : Send packages and softwares status to the WAPT server,
 
  For user session setup
-  session-setup [packages,all] : setup local user environment for specific or all installed packages
+  session-setup [packages,ALL] : setup local user environment for specific or all installed packages
 
  For packages development
   list-registry [keywords]  : list installed software from Windows Registry
@@ -386,7 +386,7 @@ def main():
 
             elif action=='session-setup':
                 if len(args)<2:
-                    print u"You must provide at least one package to be configured in user's session"
+                    print u"You must provide at least one package to be configured in user's session or ALL (in uppercase) for all currently installed packages of this system"
                     sys.exit(1)
                 result = []
                 if args[1] == 'ALL':

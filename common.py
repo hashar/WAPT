@@ -1670,7 +1670,6 @@ class Wapt(object):
                 defaults = {
                     'repositories':'',
                     'repo_url':'',
-                    'default_source_url':'',
                     'private_key':'',
                     'default_package_prefix':'tis',
                     'default_sources_suffix':'wapt',
@@ -2363,6 +2362,11 @@ class Wapt(object):
         """Download sources of package (if referenced in package as a https svn)
            in the current directory"""
         entry = self.waptdb.packages_matching(package)[-1]
+
+        if not entry.sources:
+            if self.config.has_option('global','default_sources_url'):
+                entry.sources = self.config.get('global','default_sources_url') % {'packagename':package}
+
         if not entry.sources:
             raise Exception('No sources defined in package control file')
         if "PROGRAMW6432" in os.environ:
@@ -3166,6 +3170,7 @@ class Wapt(object):
             if force or not session_db.is_installed(package_entry.package,package_entry.version):
                 try:
                     previous_cwd = os.getcwd()
+
                     # source setup.py to get session_setup func
                     if os.path.isdir(packagename):
                         package_fn = os.path.join(packagename,'setup.py')
@@ -3247,18 +3252,18 @@ class Wapt(object):
                             sys.path = oldpath
 
                     else:
-                        logger.debug('No session_setup function in setup.py for package %s, skipping' % packagename)
+                        print 'No session-setup.',
                 finally:
                     # cleanup
                     if 'setup' in dir():
                         del setup
                     else:
-                        logger.critical(u'Unable to read setup.py file')
+                        logger.critical(u'Unable to read setup.py file.')
                     sys.path = oldpath
-                    logger.debug(u'  Change current directory to %s' % previous_cwd)
+                    logger.debug(u'  Change current directory to %s.' % previous_cwd)
                     os.chdir(previous_cwd)
             else:
-                print 'Skipping %s, already installed. ' % packagename,
+                print 'Already installed.',
 
     def uninstall(self,packagename,params_dict={}):
         """Launch the uninstall script of an installed package"

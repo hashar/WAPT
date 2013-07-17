@@ -3039,7 +3039,10 @@ class Wapt(object):
             except:
                 raise Exception('Encoding of setup.py is not utf8')
 
-            mandatory = [('install',types.FunctionType) ,('uninstallkey',types.ListType),]
+            if hasattr(setup,'uninstallstring'):
+                mandatory = [('install',types.FunctionType) ,('uninstallstring',types.ListType),]
+            else:
+                mandatory = [('install',types.FunctionType) ,('uninstallkey',types.ListType),]
             for (attname,atttype) in mandatory:
                 if not hasattr(setup,attname):
                     raise Exception('setup.py has no %s (%s)' % (attname,atttype))

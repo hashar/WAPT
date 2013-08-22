@@ -1,0 +1,79 @@
+object visPrivateKeyAuth: TvisPrivateKeyAuth
+  Left = 503
+  Height = 115
+  Top = 370
+  Width = 311
+  BorderStyle = bsDialog
+  Caption = 'Authentification Clé privée'
+  ClientHeight = 115
+  ClientWidth = 311
+  Position = poScreenCenter
+  LCLVersion = '1.1'
+  object edPasswordKey: TEdit
+    Left = 178
+    Height = 21
+    Top = 50
+    Width = 116
+    EchoMode = emPassword
+    OnKeyPress = edPasswordKeyKeyPress
+    PasswordChar = '*'
+    TabOrder = 0
+  end
+  object Panel1: TPanel
+    Left = 0
+    Height = 30
+    Top = 85
+    Width = 311
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 30
+    ClientWidth = 311
+    TabOrder = 1
+    object BitBtn1: TBitBtn
+      Left = 151
+      Height = 23
+      Top = 4
+      Width = 75
+      Anchors = [akTop, akRight]
+      DefaultCaption = True
+      Kind = bkOK
+      ModalResult = 1
+      TabOrder = 0
+    end
+    object BitBtn2: TBitBtn
+      Left = 231
+      Height = 23
+      Top = 4
+      Width = 75
+      Anchors = [akTop, akRight]
+      DefaultCaption = True
+      Kind = bkCancel
+      ModalResult = 2
+      TabOrder = 1
+    end
+  end
+  object laPassword: TLabel
+    Left = 16
+    Height = 13
+    Top = 53
+    Width = 137
+    Caption = 'Mot de passe de la clé privé:'
+    ParentColor = False
+  end
+  object Label1: TLabel
+    Left = 14
+    Height = 13
+    Top = 28
+    Width = 22
+    Caption = 'Clé: '
+    ParentColor = False
+  end
+  object laKeyPath: TLabel
+    Left = 38
+    Height = 13
+    Top = 28
+    Width = 48
+    Caption = 'laKeyPath'
+    ParentColor = False
+  end
+end

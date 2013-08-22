@@ -22,6 +22,8 @@
 # -----------------------------------------------------------------------
 
 import common
+import json
+from M2Crypto import EVP
 from setuphelpers import *
 #import active_directory
 import codecs
@@ -29,6 +31,28 @@ from iniparse import RawConfigParser
 
 def registered_organization():
     return registry_readstring(HKEY_LOCAL_MACHINE,r'SOFTWARE\Microsoft\Windows NT\CurrentVersion','RegisteredOrganization')
+
+def is_encrypt_private_key(key):
+    def callback(*args):
+        return ""
+    try:
+        EVP.load_key(key, callback)
+    except Exception as e:
+        if "bad password" in str(e):
+            return True
+        else:
+            print str(e)
+            return True
+    return False
+
+def  is_match_password(key,password=""):
+    def callback(*args):
+        return password
+    try:
+        EVP.load_key(key, callback)
+    except Exception as e:
+            return False
+    return True
 
 def create_self_signed_key(wapt,orgname,destdir='c:\\private',
         country='FR',
@@ -63,7 +87,7 @@ def create_self_signed_key(wapt,orgname,destdir='c:\\private',
     print out
     return {'pem_filename':destpem,'crt_filename':destcrt}
 
-def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',company=''):
+def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',destination='',company=''):
     """Build a customized waptsetup.exe with included provided certificate
     Returns filename"""
     print default_public_cert
@@ -80,13 +104,16 @@ def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',company=''
             new_iss.append(line)
             if line.startswith('OutputBaseFilename'):
                 outputfile = makepath(wapt.wapt_base_dir,'waptsetup','%s.exe' % line.split('=')[1])
-    print os.path.normpath(default_public_cert)
-    filecopyto(os.path.normpath(default_public_cert),os.path.join(os.path.dirname(iss_template),'..','ssl'))
+    source = os.path.normpath(default_public_cert)
+    target = os.path.join(os.path.dirname(iss_template),'..','ssl')
+    if not (os.path.normcase(os.path.abspath( os.path.dirname(source))) == os.path.normcase(os.path.abspath(target))):
+        filecopyto(source,target)
     codecs.open(iss_template,'w',encoding='utf8').write('\n'.join(new_iss))
     inno_directory = '%s\\Inno Setup 5\\Compil32.exe' % programfiles32
     run('"%s" /cc %s' % (inno_directory,iss_template))
     print('%s compiled successfully' % (outputfile, ))
-    return outputfile
+    filecopyto(outputfile,destination)
+    return os.path.join(destination,os.path.basename(outputfile))
 
 def diff_computer_ad_wapt(wapt):
     """Return the computer in the Active Directory but not in Wapt Serveur """
@@ -124,11 +151,46 @@ def add_remove_option_inifile(wapt,choice,section,option,value):
     with open(waptini_fn, 'w') as configfile:
         wapt_get_ini.write(configfile)
 
+def updateTisRepo(wapt,search_string):
+    wapt = common.Wapt(config_filename=wapt)
+    wapt.update()
+    return wapt.search(search_string)
+
+def duplicate_from_tis_repo(wapt,old_file_name,new_file_name):
+    # TODO : clean this quick hack
+    if os.path.exists('c:\\wapt\\db\\tis')==False:
+        os.makedirs('c:\\wapt\\db\\tis')
+    wapt = common.Wapt(config_filename=wapt)
+    wapt.update()
+    result = wapt.duplicate_package(old_file_name,new_file_name)
+    if 'source_dir' in result:
+        return result['source_dir']
+    else:
+        return "error"
+
+def login_to_waptserver(url, login, passwd,newPass=""):
+    try:
+        data = {"username":login, "password": passwd}
+        if newPass:
+            data['newPass'] = newPass
+        resp = requests.post(url, json.dumps(data))
+        return resp.text
+    except Exception as e:
+        return unicode(str(e.message), 'ISO-8859-1')
+
+
+
 
 if __name__ == '__main__':
-    wapt = common.Wapt(config_filename='c://wapt//wapt-get.ini')
+    #wapt = common.Wapt(config_filename=r'C:\tranquilit\wapt\wapt-get.ini')
+    #print wapt.update()
+   # print wapt.download_packages(['tis-clamwin'])
+    #print is_encrypt_private_key(r'c:\tmp\ko.pem')
+    print login_to_waptserver("http://srvlts1:8080/login", "admin", "secret", "test")
+    #updateTisRepo(r'C:\tranquilit\wapt\wapt-get-public.ini')
+    #duplicate_from_tis_repo(r'C:\tranquilit\wapt\wapt-get-public.ini','tis-filezilla','totsso2-filezilla')
     #print(search_bad_waptseup(wapt,'0.6.23'))
     #print diff_computer_ad_wapt(wapt)
     #add_remove_option_inifile(wapt,True,'global','repo_url','http://wapt/wapt-sid')
 
-    #create_wapt_setup(wapt,'C:\private\titit.crt',default_repo_url='',company='')
+    #{create_wapt_setup(wapt,r'C:\tranquilit\wapt\ssl\sdeded.crt',destination='c:\wapt',default_repo_url='',company='')

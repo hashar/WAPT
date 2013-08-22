@@ -1,7 +1,7 @@
 object VisEditPackage: TVisEditPackage
-  Left = 296
+  Left = 623
   Height = 600
-  Top = 135
+  Top = 68
   Width = 800
   Caption = 'Editer le paquet'
   ClientHeight = 600
@@ -10,6 +10,8 @@ object VisEditPackage: TVisEditPackage
   Constraints.MinWidth = 800
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
+  OnShortCut = FormShortCut
+  Position = poDesktopCenter
   LCLVersion = '1.1'
   object PageControl1: TPageControl
     Left = 0
@@ -201,6 +203,7 @@ object VisEditPackage: TVisEditPackage
       Caption = 'setup.py'
       ClientHeight = 368
       ClientWidth = 792
+      TabVisible = False
       inline EdSetupPy: TSynEdit
         Left = 0
         Height = 334
@@ -731,7 +734,7 @@ object VisEditPackage: TVisEditPackage
       end
     end
   end
-  object Panel3: TPanel
+  object PanelEdit3: TPanel
     Left = 0
     Height = 118
     Top = 449
@@ -740,6 +743,7 @@ object VisEditPackage: TVisEditPackage
     ClientHeight = 118
     ClientWidth = 800
     TabOrder = 1
+    Visible = False
     object Panel7: TPanel
       Left = 1
       Height = 116
@@ -821,15 +825,15 @@ object VisEditPackage: TVisEditPackage
       Top = 2
       Width = 252
       TabOrder = 0
-      Text = 'EdPackage'
     end
     object EdVersion: TEdit
       Left = 52
       Height = 21
       Top = 24
       Width = 80
+      Enabled = False
       TabOrder = 1
-      Text = 'EdVersion'
+      Text = ' '
     end
     object Label1: TLabel
       Left = 7
@@ -854,7 +858,7 @@ object VisEditPackage: TVisEditPackage
       Width = 424
       Anchors = [akTop, akLeft, akRight]
       TabOrder = 2
-      Text = 'EdDescription'
+      Text = ' '
     end
     object Label3: TLabel
       Left = 316
@@ -871,6 +875,8 @@ object VisEditPackage: TVisEditPackage
       Width = 220
       Anchors = [akTop, akLeft, akRight]
       TabOrder = 3
+      Text = ' '
+      Visible = False
     end
     object Label4: TLabel
       Left = 344
@@ -879,6 +885,7 @@ object VisEditPackage: TVisEditPackage
       Width = 86
       Caption = 'Répertoire source'
       ParentColor = False
+      Visible = False
     end
     object Button3: TButton
       Left = -1276
@@ -905,6 +912,7 @@ object VisEditPackage: TVisEditPackage
       OnChange = EdSectionChange
       TabOrder = 5
       Text = 'base'
+      Visible = False
     end
     object Label5: TLabel
       Left = 144
@@ -913,6 +921,7 @@ object VisEditPackage: TVisEditPackage
       Width = 35
       Caption = 'Section'
       ParentColor = False
+      Visible = False
     end
     object cbShowLog: TCheckBox
       Left = 658
@@ -923,6 +932,7 @@ object VisEditPackage: TVisEditPackage
       Caption = 'Voir infos de débuggage'
       OnClick = cbShowLogClick
       TabOrder = 6
+      Visible = False
     end
   end
   object Panel4: TPanel
@@ -935,17 +945,6 @@ object VisEditPackage: TVisEditPackage
     ClientHeight = 33
     ClientWidth = 800
     TabOrder = 4
-    object BitBtn1: TBitBtn
-      Left = 641
-      Height = 26
-      Top = 4
-      Width = 74
-      Anchors = [akTop, akRight]
-      DefaultCaption = True
-      Kind = bkOK
-      ModalResult = 1
-      TabOrder = 0
-    end
     object BitBtn2: TBitBtn
       Left = 720
       Height = 26
@@ -956,25 +955,17 @@ object VisEditPackage: TVisEditPackage
       DefaultCaption = True
       Kind = bkCancel
       ModalResult = 2
-      TabOrder = 1
-    end
-    object Button4: TButton
-      Left = 440
-      Height = 25
-      Top = 4
-      Width = 75
-      Action = ActEditSavePackage
-      Anchors = [akTop, akRight]
-      TabOrder = 2
+      TabOrder = 0
     end
     object Button5: TButton
-      Left = 520
+      Left = 603
       Height = 25
       Top = 4
       Width = 112
       Action = ActBuildUpload
       Anchors = [akTop, akRight]
-      TabOrder = 3
+      Caption = 'Sauvegarder'
+      TabOrder = 1
     end
   end
   object SynPythonSyn1: TSynPythonSyn

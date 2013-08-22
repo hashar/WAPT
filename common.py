@@ -80,7 +80,9 @@ __version__ = "0.6.31"
 
 logger = logging.getLogger()
 
-def datetime2isodate(adatetime = datetime.datetime.now()):
+def datetime2isodate(adatetime = None):
+    if not adatetime:
+        adatetime = datetime.datetime.now()
     assert(isinstance(adatetime,datetime.datetime))
     return adatetime.isoformat()
 
@@ -308,6 +310,9 @@ def sha1_for_data(data):
     sha1 = hashlib.sha1()
     sha1.update(data)
     return sha1.hexdigest()
+
+def sha512_for_data(data):
+    return hashlib.sha512(data).hexdigest()
 
 def pwd_callback(*args):
     """Default password callback for opening private keys"""
@@ -1560,13 +1565,13 @@ class WaptRepo(object):
                 last_update = self.waptdb.get_param('last-%s' % self.repo_url[:59])
                 if last_update:
                     logger.debug(u'Check last-modified header for %s to avoid unecessary update' % (packages_url,))
-                    current_update = requests.head(packages_url,proxies=proxies).headers['last-modified']
+                    current_update = requests.head(packages_url,proxies=proxies,verify=False).headers['last-modified']
                     if current_update == last_update:
                         logger.info(u'Index from %s has not been updated (last update %s), skipping update' % (packages_url,last_update))
                         return current_update
 
             logger.debug(u'Read remote Packages zip file %s' % packages_url)
-            packages_answer = requests.get(packages_url,proxies=proxies)
+            packages_answer = requests.get(packages_url,proxies=proxies,verify=False)
             packages_answer.raise_for_status
 
             # Packages file is a zipfile with one Packages file inside
@@ -1620,11 +1625,11 @@ class WaptHostRepo(WaptRepo):
 
     def update_host(self,host,force=False,proxies=None):
         host_package_url = "%s/%s.wapt" % (self.repo_url,host)
-        host_package_date = requests.head(host_package_url,proxies=proxies).headers['last-modified']
+        host_package_date = requests.head(host_package_url,proxies=proxies,verify=False).headers['last-modified']
         host_cachedate = 'date-%s' % (host,)
         if host_package_date:
             if force or host_package_date <> self.waptdb.get_param(host_cachedate) or not self.waptdb.packages_matching(host):
-                host_package = requests.get(host_package_url,proxies=proxies)
+                host_package = requests.get(host_package_url,proxies=proxies,verify=False)
                 host_package.raise_for_status
 
                 # Packages file is a zipfile with one Packages file inside
@@ -1972,15 +1977,20 @@ class Wapt(object):
 
         return None
 
-    def upload_package(self,cmd_dict,is_host=False):
-      if cmd_dict['waptdir'] == "wapt-host" or is_host:
+    def upload_package(self,cmd_dict,wapt_server_user=None,wapt_server_passwd=None):
+      if not self.upload_cmd and not wapt_server_user:
+        wapt_server_user = raw_input('WAPT Server user :')
+        wapt_server_passwd = getpass.getpass('WAPT Server password :').encode('ascii')
+      auth =  (wapt_server_user, wapt_server_passwd)
+
+      if cmd_dict['waptdir'] == "wapt-host":
         if self.upload_cmd_host:
           cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
           return setuphelpers.run(self.upload_cmd_host % cmd_dict)
         else:
            for file in cmd_dict['waptfile']:
               file = file.replace('"','')
-              req = requests.post("%s/upload_host" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies,verify=False)
+              req = requests.post("%s/upload_host" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies,verify=False,auth=auth)
               req.raise_for_status()
            return req.content
 
@@ -1991,7 +2001,7 @@ class Wapt(object):
         else:
           for file in cmd_dict['waptfile']:
             file = file.replace('"','')
-            req = requests.post("%s/upload_package" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies,verify=False)
+            req = requests.post("%s/upload_package" % (self.wapt_server),files={'file':open(file,'rb')},proxies=self.proxies,verify=False,auth=auth)
             req.raise_for_status()
           return req.content
 
@@ -3113,18 +3123,20 @@ class Wapt(object):
             logger.debug(u'  Change current directory to %s' % previous_cwd)
             os.chdir(previous_cwd)
 
-    def build_upload(self,sources_directories,private_key_passwd=None):
+    def build_upload(self,sources_directories,private_key_passwd=None,wapt_server_user=None,wapt_server_passwd=None,inc_package_release=False):
         """Build a list of packages and upload the resulting packages to the main repository.
            if section of package is group or host, user specific wapt-host or wapt-group
         """
         if not isinstance(sources_directories,list):
             sources_directories = [sources_directories]
         result = []
-
         for source_dir in [os.path.abspath(p) for p in sources_directories]:
             if os.path.isdir(source_dir):
                 print('Building  %s' % source_dir)
-                buildresult = self.build_package(source_dir)
+                if inc_package_release==False:
+                    buildresult = self.build_package(source_dir)
+                else:
+                    buildresult = self.build_package(source_dir,inc_package_release=True)
                 package_fn = buildresult['filename']
                 if package_fn:
                     result.append(buildresult)
@@ -3171,13 +3183,13 @@ class Wapt(object):
                 # add quotes for command line
                 files_list = ['"%s"' % f for f in package_group[1]]
                 cmd_dict =  {'waptfile': files_list,'waptdir':package_group[0]}
-                print self.upload_package(cmd_dict)
+                print self.upload_package(cmd_dict,wapt_server_user,wapt_server_passwd)
 
                 if package_group<>hosts:
                     if self.after_upload:
                         print 'Run after upload script...'
                         print setuphelpers.run(self.after_upload % cmd_dict)
-                    else:
+                    elif self.upload_cmd:
                         print "Don't forget to update Packages index on repository !"
 
         return result

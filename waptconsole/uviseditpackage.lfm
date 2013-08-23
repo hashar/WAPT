@@ -1,7 +1,7 @@
 object VisEditPackage: TVisEditPackage
-  Left = 623
+  Left = 573
   Height = 600
-  Top = 68
+  Top = 674
   Width = 800
   Caption = 'Editer le paquet'
   ClientHeight = 600
@@ -10,7 +10,6 @@ object VisEditPackage: TVisEditPackage
   Constraints.MinWidth = 800
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
-  OnShortCut = FormShortCut
   Position = poDesktopCenter
   LCLVersion = '1.1'
   object PageControl1: TPageControl
@@ -50,7 +49,7 @@ object VisEditPackage: TVisEditPackage
             Height = 21
             Top = 3
             Width = 136
-            OnKeyPress = EdSearchKeyPress
+            OnKeyDown = EdSearchKeyDown
             TabOrder = 0
           end
           object butSearchPackages1: TButton
@@ -917,7 +916,7 @@ object VisEditPackage: TVisEditPackage
     object Label5: TLabel
       Left = 144
       Height = 13
-      Top = 26
+      Top = 29
       Width = 35
       Caption = 'Section'
       ParentColor = False

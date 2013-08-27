@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.6.31"
+__version__ = "0.7.2"
 
 import os
 import sys
@@ -214,7 +214,7 @@ def wget(url,target,reporthook=None,printhook=None,proxies=None):
     try:
         if not reporthook:
             reporthook = report
-        last_time_display = 0
+        last_time_display = time.time()
         last_downloaded = 0
         reporthook(0,chunk_size,total_bytes)
         cnt = 0

@@ -87,7 +87,7 @@ def create_self_signed_key(wapt,orgname,destdir='c:\\private',
     print out
     return {'pem_filename':destpem,'crt_filename':destcrt}
 
-def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',destination='',company=''):
+def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',default_wapt_server='',destination='',company=''):
     """Build a customized waptsetup.exe with included provided certificate
     Returns filename"""
     print default_public_cert
@@ -100,6 +100,8 @@ def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',destinatio
     for line in iss:
         if line.startswith('#define default_repo_url'):
             new_iss.append('#define default_repo_url "%s"' % (default_repo_url))
+        elif line.startswith('#define default_wapt_server'):
+            new_iss.append('#define default_wapt_server "%s"' % (default_wapt_server))
         elif not line.startswith('SignTool'):
             new_iss.append(line)
             if line.startswith('OutputBaseFilename'):
@@ -157,10 +159,9 @@ def updateTisRepo(wapt,search_string):
     return wapt.search(search_string)
 
 def duplicate_from_tis_repo(wapt,old_file_name,new_file_name):
-    # TODO : clean this quick hack
-    if os.path.exists('c:\\wapt\\db\\tis')==False:
-        os.makedirs('c:\\wapt\\db\\tis')
+    import tempfile
     wapt = common.Wapt(config_filename=wapt)
+    wapt.config.set('global','default_sources_root',tempfile.mkdtemp())
     wapt.update()
     result = wapt.duplicate_package(old_file_name,new_file_name)
     if 'source_dir' in result:
@@ -182,15 +183,5 @@ def login_to_waptserver(url, login, passwd,newPass=""):
 
 
 if __name__ == '__main__':
-    #wapt = common.Wapt(config_filename=r'C:\tranquilit\wapt\wapt-get.ini')
-    #print wapt.update()
-   # print wapt.download_packages(['tis-clamwin'])
-    #print is_encrypt_private_key(r'c:\tmp\ko.pem')
-    print login_to_waptserver("http://srvlts1:8080/login", "admin", "secret", "test")
-    #updateTisRepo(r'C:\tranquilit\wapt\wapt-get-public.ini')
-    #duplicate_from_tis_repo(r'C:\tranquilit\wapt\wapt-get-public.ini','tis-filezilla','totsso2-filezilla')
-    #print(search_bad_waptseup(wapt,'0.6.23'))
-    #print diff_computer_ad_wapt(wapt)
-    #add_remove_option_inifile(wapt,True,'global','repo_url','http://wapt/wapt-sid')
-
     #{create_wapt_setup(wapt,r'C:\tranquilit\wapt\ssl\sdeded.crt',destination='c:\wapt',default_repo_url='',company='')
+    pass

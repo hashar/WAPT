@@ -6,10 +6,9 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, SynHighlighterPython, SynEdit,
-  vte_json, LSControls, Forms,
-  Controls, Graphics, Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus,
-  EditBtn, fpJson, jsonparser, superobject,
-  UniqueInstance, VirtualTrees, VarPyth, Windows, ActiveX, LMessages, ImgList;
+  vte_json, Forms,
+  Controls, Graphics, Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus, fpJson, jsonparser, superobject,
+  UniqueInstance, VirtualTrees, VarPyth, Windows, LMessages, ImgList;
 
 type
 
@@ -34,6 +33,7 @@ type
     ActDeletePackage: TAction;
     ActAdvancedMode: TAction;
     ActChangePassword: TAction;
+    ActUpdateWaptGetINI: TAction;
     actRefresh: TAction;
     actQuit: TAction;
     ActPackageGroupAdd: TAction;
@@ -117,6 +117,7 @@ type
     MenuItem28: TMenuItem;
     MenuItem29: TMenuItem;
     MenuItem3: TMenuItem;
+    MenuItem30: TMenuItem;
     MenuItem4: TMenuItem;
     MenuItem5: TMenuItem;
     MenuItem6: TMenuItem;
@@ -183,6 +184,7 @@ type
     procedure ActSearchHostExecute(Sender: TObject);
     procedure ActSearchPackageExecute(Sender: TObject);
     procedure ActUpdateExecute(Sender: TObject);
+    procedure ActUpdateWaptGetINIExecute(Sender: TObject);
     procedure ActUpgradeExecute(Sender: TObject);
     procedure butSearchPackages1Click(Sender: TObject);
     procedure cbSearchAllChange(Sender: TObject);
@@ -198,7 +200,7 @@ type
     procedure GridHostsChange(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure GridHostsGetImageIndexEx(Sender: TBaseVirtualTree;
       Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var Ghosted: Boolean; var ImageIndex: Integer;
+      var Ghosted: boolean; var ImageIndex: integer;
       var ImageList: TCustomImageList);
     procedure GridHostsGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Data: TJSONData; Column: TColumnIndex; TextType: TVSTTextType;
@@ -234,7 +236,7 @@ implementation
 
 uses LCLIntf, IniFiles, uvisprivatekeyauth, uvisloading, tisstrings, soutils, waptcommon,
   uVisCreateKey, uVisCreateWaptSetup,
-  uvisOptionIniFile, dmwaptpython, uviseditpackage, uvispassword, tiscommon;
+  uvisOptionIniFile, dmwaptpython, uviseditpackage, uvispassword;
 
 {$R *.lfm}
 
@@ -271,7 +273,7 @@ begin
       Result := js[FieldName];
   end
   else
-    Result := Nil;
+    Result := nil;
 end;
 
 
@@ -505,7 +507,7 @@ begin
 
 
         uploadResult := DMPython.RunJSON(
-          format('mywapt.build_upload(r"%s",r"%s",r"%s",r"%s")',
+          format('mywapt.build_upload(r"%s",r"%s",r"%s",r"%s","False","True")',
           [sourceDir, privateKeyPassword, waptServerUser, waptServerPassword]), jsonlog);
         if uploadResult.AsString <> '' then
         begin
@@ -627,6 +629,8 @@ begin
               INI := TINIFile.Create(WaptIniFilename);
               INI.WriteString('global', 'private_key', Result.S['pem_filename']);
               INI.Free;
+
+              ActUpdateWaptGetINIExecute(self);
             end;
 
           except
@@ -676,8 +680,8 @@ begin
       newPass := PasswordBox('Serveur WAPT', 'Nouveau mot de passe');
       DMPython.RunJSON(
         format('waptdevutils.login_to_waptserver("%s","%s","%s","%s")',
-        [GetWaptServerURL + '/login', waptServerUser,
-        waptServerPassword, newPass]));
+        [GetWaptServerURL + '/login', waptServerUser, waptServerPassword,
+        newPass]));
 
     finally
       Free;
@@ -700,6 +704,7 @@ begin
             params := params + format('default_public_cert=r"%s",',
               [fnPublicCert.FileName]);
             params := params + format('default_repo_url=r"%s",', [edRepoUrl.Text]);
+            params := params + format('default_wapt_server=r"%s",', [edWaptServerUrl.Text]);
             params := params + format('destination=r"%s",', [fnWaptDirectory.Directory]);
             params := params + format('company=r"%s",', [edOrgName.Text]);
             waptsetupPath := DMPython.RunJSON(
@@ -936,6 +941,12 @@ begin
   ActSearchPackageExecute(Sender);
 end;
 
+procedure TVisWaptGUI.ActUpdateWaptGetINIExecute(Sender: TObject);
+begin
+  DMPython.WaptConfigFileName := waptpath + '\wapt-get.ini';
+  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
+end;
+
 procedure TVisWaptGUI.ActUpgradeExecute(Sender: TObject);
 begin
   DMPython.RunJSON('mywapt.upgrade()', jsonlog);
@@ -996,10 +1007,7 @@ begin
 
   waptpath := ExtractFileDir(ParamStr(0));
   //butInitWapt.Click;
-
-  DMPython.WaptConfigFileName := waptpath + '\wapt-get.ini';
-  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
-
+  ActUpdateWaptGetINIExecute(Self);
   GridPackages.Clear;
   MemoLog.Clear;
 
@@ -1092,26 +1100,26 @@ end;
 
 procedure TVisWaptGUI.GridHostsGetImageIndexEx(Sender: TBaseVirtualTree;
   Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-  var Ghosted: Boolean; var ImageIndex: Integer; var ImageList: TCustomImageList
-  );
+  var Ghosted: boolean; var ImageIndex: integer; var ImageList: TCustomImageList);
 var
-  update_status,upgrades,errors : ISuperObject;
+  update_status, upgrades, errors: ISuperObject;
 begin
   if Column = 0 then
   begin
-    update_status := GetGridSOValue(GridHosts,Node,'update_status');
-    if (update_status<>Nil) then
+    update_status := GetGridSOValue(GridHosts, Node, 'update_status');
+    if (update_status <> nil) then
     begin
       ImageList := ImageList1;
       errors := update_status['errors'];
       upgrades := update_status['upgrades'];
-      if (errors<>Nil) and (errors.AsArray.Length>0) then
-        ImageIndex:=1
+      if (errors <> nil) and (errors.AsArray.Length > 0) then
+        ImageIndex := 1
       else
-      if (upgrades<>Nil) and (upgrades.AsArray.Length>0) then
-        ImageIndex:=0
+      if (upgrades <> nil) and (upgrades.AsArray.Length > 0) then
+        ImageIndex := 0
       else
-        ImageIndex:=-1;
+        ImageIndex := -1;
+
     end;
   end;
 end;

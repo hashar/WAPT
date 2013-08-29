@@ -7,7 +7,8 @@ interface
 uses
   Classes, SysUtils, FileUtil, SynHighlighterPython, SynEdit,
   vte_json, Forms,
-  Controls, Graphics, Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus, fpJson, jsonparser, superobject,
+  Controls, Graphics, Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList,
+  Menus, fpJson, jsonparser, superobject,
   UniqueInstance, VirtualTrees, VarPyth, Windows, LMessages, ImgList;
 
 type
@@ -287,6 +288,7 @@ end;
 
 procedure TVisWaptGUI.cbShowLogClick(Sender: TObject);
 begin
+  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
   if cbShowLog.Checked then
     DMPython.PythonEng.ExecString('logger.setLevel(logging.DEBUG)')
   else
@@ -370,7 +372,7 @@ begin
       Edit5.Text := GetValue(GridHosts, Node, 'host.system_manufacturer');
       Edit6.Text := GetValue(GridHosts, Node, 'host.system_productname');
       Edit7.Text := GetValue(GridHosts, Node, 'last_query_date');
-      Edit8.Text := GetValue(GridHosts, Node, 'host.user');
+      Edit8.Text := GetValue(GridHosts, Node, 'host.current_user');
       GridLoadData(GridHostPackages, packages_json);
     end
     else if HostPages.ActivePage = pgSoftwares then
@@ -473,7 +475,7 @@ begin
 
       sourceDir := DMPython.RunJSON(
         Format('waptdevutils.duplicate_from_tis_repo(r"%s","%s","%s")',
-        [waptpath + '\wapt-get-public.ini', oldName, newName])).AsString;
+        [waptpath + '\wapt-get.ini', oldName, newName])).AsString;
       if sourceDir <> 'error' then
       begin
         isEncrypt := StrToBool(DMPython.RunJSON(
@@ -626,9 +628,12 @@ begin
                 PChar(waptpath + '\ssl\' + ExtractFileName(certFile)), True) then
                 ShowMessage('Erreur lors de la copie de la clé publique');
 
-              INI := TINIFile.Create(WaptIniFilename);
-              INI.WriteString('global', 'private_key', Result.S['pem_filename']);
-              INI.Free;
+              with TINIFile.Create(WaptIniFilename) do
+              try
+                WriteString('global', 'private_key', Result.S['pem_filename']);
+              finally
+                Free;
+              end;
 
               ActUpdateWaptGetINIExecute(self);
             end;
@@ -704,7 +709,8 @@ begin
             params := params + format('default_public_cert=r"%s",',
               [fnPublicCert.FileName]);
             params := params + format('default_repo_url=r"%s",', [edRepoUrl.Text]);
-            params := params + format('default_wapt_server=r"%s",', [edWaptServerUrl.Text]);
+            params := params + format('default_wapt_server=r"%s",',
+              [edWaptServerUrl.Text]);
             params := params + format('destination=r"%s",', [fnWaptDirectory.Directory]);
             params := params + format('company=r"%s",', [edOrgName.Text]);
             waptsetupPath := DMPython.RunJSON(
@@ -943,8 +949,7 @@ end;
 
 procedure TVisWaptGUI.ActUpdateWaptGetINIExecute(Sender: TObject);
 begin
-  DMPython.WaptConfigFileName := waptpath + '\wapt-get.ini';
-  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
+  DMPython.RunJSON('mywapt.load_config()', jsonlog);
 end;
 
 procedure TVisWaptGUI.ActUpgradeExecute(Sender: TObject);
@@ -959,7 +964,7 @@ var
   jsp: TJSONParser;
 begin
   expr := format('waptdevutils.updateTisRepo(r"%s","%s")',
-    [waptpath + '\wapt-get-public.ini', EdSearch1.Text]);
+    [waptpath + '\wapt-get.ini', EdSearch1.Text]);
   packages := DMPython.RunJSON(expr);
   GridLoadData(GridPackages1, packages.AsJSon);
 end;
@@ -1006,7 +1011,10 @@ begin
   end;
 
   waptpath := ExtractFileDir(ParamStr(0));
-  //butInitWapt.Click;
+
+  DMPython.WaptConfigFileName := waptpath + '\wapt-get.ini';
+  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
+
   ActUpdateWaptGetINIExecute(Self);
   GridPackages.Clear;
   MemoLog.Clear;

@@ -44,7 +44,6 @@ Source: "..\wapt-get.exe"; DestDir: "{app}";
 Source: "..\waptconsole.exe.manifest"; DestDir: "{app}";
 Source: "..\waptconsole.exe"; DestDir: "{app}";
 Source: "..\waptdevutils.py"; DestDir: "{app}";
-Source: "..\wapt-get-public.ini"; DestDir: "{app}";
 Source: "..\dmidecode.exe"; DestDir: "{app}";
 Source: "..\wapt.ico"; DestDir: "{app}";
 Source: "wapt.iss"; DestDir: "{app}\waptsetup";
@@ -55,6 +54,7 @@ Source: "..\vc_redist\*"; DestDir: "{app}\vc_redist";
 Source: "..\lib\site-packages\M2Crypto\libeay32.dll" ; DestDir: "{app}"; 
 Source: "..\lib\site-packages\M2Crypto\ssleay32.dll" ; DestDir: "{app}";
 #ifdef waptserver
+Source: "waptserver.iss"; DestDir: "{app}\waptsetup";
 Source: "..\waptpython.exe"; DestDir: "{app}";
 Source: "..\waptserver\waptserver.ini.template"; DestDir: "{app}\waptserver"; DestName: "waptserver.ini"
 Source: "..\waptserver\*.py"; DestDir: "{app}\waptserver";       

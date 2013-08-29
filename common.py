@@ -3446,6 +3446,8 @@ class Wapt(object):
 
         elif ext=='.msi':
             silentflag = '/q'
+        elif ext=='.msu':
+            silentflag = '/quiet /norestart'
         else:
             silentflag = ''
         return silentflag

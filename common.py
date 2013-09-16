@@ -76,7 +76,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.7.3"
+__version__ = "0.7.4"
 
 logger = logging.getLogger()
 
@@ -294,6 +294,15 @@ def merge_dict(d1,d2):
         else:
             result[k] = d2[k]
     return result
+
+def read_in_chunks(f, chunk_size=1024*128):
+    """Lazy function (generator) to read a file piece by piece.
+    Default chunk size: 128k."""
+    while True:
+        data = f.read(chunk_size)
+        if not data:
+            break
+        yield data
 
 def sha1_for_file(fname, block_size=2**20):
     f = open(fname,'rb')
@@ -1983,6 +1992,7 @@ class Wapt(object):
 
         return None
 
+
     def upload_package(self,cmd_dict,wapt_server_user=None,wapt_server_passwd=None):
       if not self.upload_cmd and not wapt_server_user:
         wapt_server_user = raw_input('WAPT Server user :')
@@ -1995,10 +2005,11 @@ class Wapt(object):
           return setuphelpers.run(self.upload_cmd_host % cmd_dict)
         else:
            for file in cmd_dict['waptfile']:
-              file = file.replace('"','')
-              with open(file,'rb') as afile:
-                req = requests.post("%s/upload_host" % (self.wapt_server,),files={'file':afile},proxies=self.proxies,verify=False,auth=auth)
-                req.raise_for_status()
+				file =  file[1:-1]
+				with open(file,'rb') as afile:
+					req = requests.post("%s/upload_host" % (self.wapt_server,),files={'file':afile},proxies=self.proxies,verify=False,auth=auth)
+					req.raise_for_status()
+
            return req.content
 
       else:
@@ -2010,7 +2021,7 @@ class Wapt(object):
             # file is surrounded by quotes for shell usage
             file = file[1:-1]
             with open(file,'rb') as afile:
-                req = requests.post("%s/upload_package" % (self.wapt_server),files={'file':afile},proxies=self.proxies,verify=False,auth=auth)
+                req = requests.post("%s/upload_package/%s" % (self.wapt_server,os.path.basename(file)),data=afile,proxies=self.proxies,verify=False,auth=auth)
                 req.raise_for_status()
           return req.content
 
@@ -2458,12 +2469,13 @@ class Wapt(object):
                     logger.warning('Unable to remove %s : %s' % (f,ensure_unicode(e)))
         return result
 
-    def update(self,force=False):
+    def update(self,force=False,register=True):
         """Update local database with packages definition from repositories
             returns a dict of
                 "added","removed","count","repos","upgrades","date"
             force : update even if Packages on repository has not been updated
                     since last update (based on http headers)
+			register : Send informations about packages to waptserver
         """
         previous = self.waptdb.known_packages()
         if not self.wapt_repourl:
@@ -2482,10 +2494,11 @@ class Wapt(object):
             }
 
         self.store_upgrade_status()
-        try:
-            self.update_server_status()
-        except Exception,e:
-            logger.critical('Unable to update server with current status : %s' % ensure_unicode(e))
+        if register:
+		    try:
+			    self.update_server_status()
+		    except Exception,e:
+		        logger.critical('Unable to update server with current status : %s' % ensure_unicode(e))
         return result
 
     def check_depends(self,apackages,forceupgrade=False,force=False,assume_removed=[]):
@@ -2996,7 +3009,7 @@ class Wapt(object):
         inv['softwares'] = setuphelpers.installed_softwares('')
         inv['packages'] = [p.as_dict() for p in self.waptdb.installed(include_errors=True).values()]
         try:
-            inv['uuid'] = inv['dmi']['System Information']['UUID']
+            inv['uuid'] = inv['dmi']['System_Information']['UUID']
         except:
             inv['uuid'] = inv['host']['computer_fqdn']
         return inv
@@ -3702,10 +3715,18 @@ class Wapt(object):
             Return the the directory name of the package sources"""
         # check if already downloaded ...
         p = self.is_available(packagename)
+
         if p:
             devdir = self.get_default_development_dir(p[-1].package,section=p[-1].section)
         else:
-            devdir = self.get_default_development_dir(p[-1].package)
+            if os.path.isfile(packagename):
+                devdir = tempfile.mkdtemp(prefix="wapt")
+                zip = ZipFile(packagename)
+                zip.extractall(path=devdir)
+                packagename= PackageEntry().load_control_from_wapt(packagename).package
+            else:
+                raise Exception('Wrong wapt package name')
+
         if os.path.isdir(devdir):
             if not ignore_local_sources:
                 package=PackageEntry().load_control_from_wapt(devdir)

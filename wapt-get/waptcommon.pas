@@ -43,6 +43,8 @@ interface
   function WaptgetPath: Utf8String;
   function WaptservicePath: Utf8String;
   function WaptDBPath: Utf8String;
+  function WaptExternalRepo: Utf8String;
+  function GetWaptRepoURL: Utf8String;
 
   //function http_post(url: string;Params:String): String;
 
@@ -331,6 +333,15 @@ begin
   result := IniReadString(WaptIniFilename,'Global','wapt_server');
 end;
 
+
+function GetWaptRepoURL: Utf8String;
+begin
+  result := IniReadString(WaptIniFilename,'Global','repo_url');
+  if Result = '' then
+      Result:='http://wapt/wapt/';
+end;
+
+
 function GetWaptPrivateKey: String;
 begin
   result := IniReadString(WaptIniFilename,'Global','private_key');
@@ -365,37 +376,12 @@ begin
     result := ExtractFilePath(ParamStr(0))+'\db\waptdb.sqlite'
 end;
 
-{
-idHttp,
-function http_post(url: string;Params:String): String;
-var
-  St:TMemoryStream;
-  http:TIdHTTP;
-  paramsStream:TStringStream;
+function WaptExternalRepo: Utf8String;
 begin
-  try
-    http := Nil;
-    paramsStream := Nil;
-    http:=TIdHTTP.Create(Nil);
-    paramsStream := TStringStream.Create(Params);
-    HTTP.Request.ContentType := 'application/x-www-form-urlencoded';
-
-    //http.AllowCookies := True;
-    //http.CookieManager := session_cookies;
-
-    result := http.Post(url,paramsStream);
-  finally
-    if paramsStream<>Nil then
-      paramsStream.Free;
-    http.DisconnectNotifyPeer;
-    if http<>Nil then
-      http.Free;
-  end;
+  Result := IniReadString(WaptIniFilename,'Global','templates_repo_url');
+  if Result = '' then
+      Result:='http://wapt.tranquil.it/wapt/';
 end;
-}
-
-
-{ waptdb }
 
 constructor Twaptdb.create(dbpath:String);
 begin

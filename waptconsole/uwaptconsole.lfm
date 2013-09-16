@@ -1,20 +1,21 @@
 object VisWaptGUI: TVisWaptGUI
-  Left = 667
+  Left = 713
   Height = 695
-  Top = 179
-  Width = 1096
+  Top = 127
+  Width = 1074
   Caption = 'Console WAPT'
   ClientHeight = 676
-  ClientWidth = 1096
+  ClientWidth = 1074
   Menu = MainMenu1
   OnCreate = FormCreate
+  OnShow = FormShow
   Position = poScreenCenter
   LCLVersion = '1.1'
   object PageControl1: TPageControl
     Left = 0
     Height = 553
     Top = 0
-    Width = 1096
+    Width = 1074
     ActivePage = pgInventory
     Align = alClient
     TabIndex = 0
@@ -23,16 +24,16 @@ object VisWaptGUI: TVisWaptGUI
     object pgInventory: TTabSheet
       Caption = 'Inventaire'
       ClientHeight = 527
-      ClientWidth = 1088
+      ClientWidth = 1066
       object Panel10: TPanel
         Left = 0
         Height = 54
         Top = 0
-        Width = 1088
+        Width = 1066
         Align = alTop
         BevelOuter = bvNone
         ClientHeight = 54
-        ClientWidth = 1088
+        ClientWidth = 1066
         TabOrder = 0
         object EdSearchHost: TEdit
           Left = 60
@@ -129,17 +130,18 @@ object VisWaptGUI: TVisWaptGUI
           TabOrder = 8
         end
       end
-      object GridHosts: TVirtualJSONListView
+      object GridHosts: TSOGrid
         Left = 0
         Height = 473
         Top = 54
-        Width = 511
+        Width = 489
         OnGetText = GridHostsGetText
         Align = alClient
         Color = clWhite
         Header.AutoSizeIndex = -1
         Header.Columns = <        
           item
+            MaxWidth = 400
             Position = 0
             Text = 'Status'
           end        
@@ -176,7 +178,7 @@ object VisWaptGUI: TVisWaptGUI
             Position = 5
             Text = 'Numéro de série'
             Width = 100
-            PropertyName = 'dmi.Chassis\sInformation.Serial\sNumber'
+            PropertyName = 'dmi.Chassis_Information.Serial_Number'
           end        
           item
             MaxWidth = 400
@@ -255,24 +257,21 @@ object VisWaptGUI: TVisWaptGUI
             PropertyName = 'id'
           end>
         Header.DefaultHeight = 17
-        Header.MainColumn = 1
-        Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]
+        Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
         Header.Style = hsFlatButtons
         Images = ImageList1
         PopupMenu = PopupMenuHosts
         TabOrder = 1
-        TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
-        TreeOptions.PaintOptions = [toHideFocusRect, toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
-        TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
-        OnChange = GridHostsChange
-        OnCompareNodes = GridPackagesCompareNodes
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toFullRowDrag, toEditOnClick]
+        TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseExplorerTheme]
+        TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect, toSimpleDrawSelection]
+        WantTabs = True
         OnDblClick = ActEditHostPackageExecute
+        OnFocusChanged = GridHostsFocusChanged
         OnGetImageIndexEx = GridHostsGetImageIndexEx
-        OnHeaderClick = GridPackagesHeaderClick
       end
       object HostPages: TPageControl
-        Left = 516
+        Left = 494
         Height = 473
         Top = 54
         Width = 572
@@ -286,7 +285,7 @@ object VisWaptGUI: TVisWaptGUI
           Caption = 'Résumé'
           ClientHeight = 447
           ClientWidth = 564
-          object GridHostPackages: TVirtualJSONListView
+          object GridHostPackages: TSOGrid
             AnchorSideTop.Control = Panel9
             AnchorSideTop.Side = asrBottom
             Left = 0
@@ -300,56 +299,60 @@ object VisWaptGUI: TVisWaptGUI
             Header.Columns = <            
               item
                 Position = 0
+                Text = 'Status'
+              end            
+              item
+                Position = 1
                 Text = 'Section'
                 PropertyName = 'section'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
-                Position = 1
+                Position = 2
                 Text = 'Nom paquet'
                 Width = 300
                 PropertyName = 'package'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
-                Position = 2
+                Position = 3
                 Text = 'Status'
                 PropertyName = 'install_status'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
-                Position = 3
+                Position = 4
                 Text = 'Version'
                 Width = 30
                 PropertyName = 'version'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
-                Position = 4
+                Position = 5
                 Text = 'Description'
                 PropertyName = 'description'
               end            
               item
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
-                Position = 5
+                Position = 6
                 Text = 'Dependances'
                 PropertyName = 'depends'
               end            
               item
-                Position = 6
+                Position = 7
                 Text = 'Date installation'
                 PropertyName = 'install_date'
               end>
             Header.DefaultHeight = 17
             Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]
             Header.Style = hsFlatButtons
+            Images = ImageList1
             TabOrder = 0
             TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
             TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
             TreeOptions.PaintOptions = [toHideFocusRect, toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
             TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
-            OnCompareNodes = GridPackagesCompareNodes
-            OnHeaderClick = GridPackagesHeaderClick
+            OnGetImageIndexEx = GridHostPackagesGetImageIndexEx
           end
           object Panel9: TPanel
             AnchorSideBottom.Control = GridHostPackages
@@ -443,75 +446,83 @@ object VisWaptGUI: TVisWaptGUI
               ParentBidiMode = False
               ParentColor = False
             end
-            object Edit1: TEdit
+            object EdHostname: TEdit
               Left = 127
               Height = 21
               Top = 10
               Width = 216
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 0
             end
-            object Edit2: TEdit
+            object EdDescription: TEdit
               Left = 127
               Height = 21
               Top = 32
               Width = 216
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 1
             end
-            object Edit3: TEdit
+            object EdOS: TEdit
               Left = 127
               Height = 21
               Top = 54
               Width = 216
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 2
             end
-            object Edit4: TEdit
+            object EdIPAddress: TEdit
               Left = 127
               Height = 21
               Top = 76
               Width = 216
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 3
             end
-            object Edit5: TEdit
+            object EdManufacturer: TEdit
               Left = 419
               Height = 21
               Top = 10
               Width = 132
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 4
             end
-            object Edit6: TEdit
+            object EdModelName: TEdit
               Left = 419
               Height = 21
               Top = 32
               Width = 132
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 5
             end
-            object Edit7: TEdit
+            object EdUpdateDate: TEdit
               Left = 419
               Height = 21
               Top = 54
               Width = 132
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 6
             end
-            object Edit8: TEdit
+            object EdUser: TEdit
               Left = 419
               Height = 21
               Top = 76
               Width = 132
               Anchors = []
+              Color = 15066597
               ReadOnly = True
               TabOrder = 7
             end
@@ -519,11 +530,11 @@ object VisWaptGUI: TVisWaptGUI
         end
         object pgHostPackage: TTabSheet
           Caption = 'Inventaire matériel'
-          ClientHeight = 447
+          ClientHeight = 442
           ClientWidth = 564
           object GridhostAttribs: TVirtualJSONInspector
             Left = 0
-            Height = 447
+            Height = 442
             Top = 0
             Width = 564
             PropertyDefs = <>
@@ -555,7 +566,7 @@ object VisWaptGUI: TVisWaptGUI
           Caption = 'Inventaire logiciels'
           ClientHeight = 447
           ClientWidth = 564
-          object GridHostSoftwares: TVirtualJSONListView
+          object GridHostSoftwares: TSOGrid
             Left = 0
             Height = 447
             Top = 0
@@ -597,24 +608,23 @@ object VisWaptGUI: TVisWaptGUI
                 Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coWrapCaption]
                 Position = 5
                 Text = 'Répertoire d''installation'
+                Width = 330
                 PropertyName = 'install_location'
               end>
             Header.DefaultHeight = 17
             Header.MainColumn = 1
-            Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]
+            Header.Options = [hoAutoResize, hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]
             Header.Style = hsFlatButtons
             TabOrder = 0
             TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
             TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
             TreeOptions.PaintOptions = [toHideFocusRect, toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
             TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
-            OnCompareNodes = GridPackagesCompareNodes
-            OnHeaderClick = GridPackagesHeaderClick
           end
         end
       end
       object Splitter4: TSplitter
-        Left = 511
+        Left = 489
         Height = 473
         Top = 54
         Width = 5
@@ -626,7 +636,7 @@ object VisWaptGUI: TVisWaptGUI
       Caption = 'Dépôt privé'
       ClientHeight = 527
       ClientWidth = 1088
-      object GridPackages: TVirtualJSONListView
+      object GridPackages: TSOGrid
         Left = 0
         Height = 477
         Top = 30
@@ -693,10 +703,8 @@ object VisWaptGUI: TVisWaptGUI
         TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
         TreeOptions.PaintOptions = [toHideFocusRect, toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
-        OnCompareNodes = GridPackagesCompareNodes
         OnDblClick = ActPackageEdit
         OnPaintText = GridPackagesPaintText
-        OnHeaderClick = GridPackagesHeaderClick
       end
       object Panel5: TPanel
         Left = 0
@@ -770,10 +778,10 @@ object VisWaptGUI: TVisWaptGUI
       end
     end
     object pgTISRepo: TTabSheet
-      Caption = 'Dépôt public TIS'
+      Caption = 'Dépôt Externe'
       ClientHeight = 527
       ClientWidth = 1088
-      object GridPackages1: TVirtualJSONListView
+      object GridPackages1: TSOGrid
         Left = 0
         Height = 477
         Top = 30
@@ -840,10 +848,8 @@ object VisWaptGUI: TVisWaptGUI
         TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
         TreeOptions.PaintOptions = [toHideFocusRect, toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
-        OnCompareNodes = GridPackagesCompareNodes
         OnDblClick = ActPackageDuplicateExecute
         OnPaintText = GridPackagesPaintText
-        OnHeaderClick = GridPackagesHeaderClick
       end
       object Panel6: TPanel
         Left = 0
@@ -900,16 +906,40 @@ object VisWaptGUI: TVisWaptGUI
           OnClick = ActPackageDuplicateExecute
           TabOrder = 2
         end
+        object urlExternalRepo: TLabel
+          AnchorSideRight.Control = Changer
+          Left = 988
+          Height = 13
+          Top = 9
+          Width = 20
+          Anchors = [akTop, akRight]
+          BorderSpacing.Right = 5
+          Caption = 'Url: '
+          ParentColor = False
+        end
+        object Changer: TButton
+          AnchorSideLeft.Side = asrBottom
+          AnchorSideRight.Control = Panel8
+          AnchorSideRight.Side = asrBottom
+          Left = 1013
+          Height = 25
+          Top = 2
+          Width = 75
+          Anchors = [akTop, akRight]
+          Caption = 'Changer'
+          OnClick = ChangerClick
+          TabOrder = 3
+        end
       end
     end
     object TabSheet1: TTabSheet
       Caption = 'Sources'
-      ClientHeight = 527
+      ClientHeight = 524
       ClientWidth = 1088
       TabVisible = False
       inline testedit: TSynEdit
         Left = 0
-        Height = 493
+        Height = 490
         Top = 34
         Width = 1088
         Align = alClient
@@ -1360,23 +1390,31 @@ object VisWaptGUI: TVisWaptGUI
           'mywapt = Wapt(config_filename=config_file)'
         )
         VisibleSpecialChars = [vscSpace, vscTabAtLast]
+        SelectedColor.FrameEdges = sfeAround
         SelectedColor.BackPriority = 50
         SelectedColor.ForePriority = 50
         SelectedColor.FramePriority = 50
         SelectedColor.BoldPriority = 50
         SelectedColor.ItalicPriority = 50
         SelectedColor.UnderlinePriority = 50
+        SelectedColor.StrikeOutPriority = 50
+        IncrementColor.FrameEdges = sfeAround
+        HighlightAllColor.FrameEdges = sfeAround
         BracketHighlightStyle = sbhsBoth
         BracketMatchColor.Background = clNone
         BracketMatchColor.Foreground = clNone
+        BracketMatchColor.FrameEdges = sfeAround
         BracketMatchColor.Style = [fsBold]
         FoldedCodeColor.Background = clNone
         FoldedCodeColor.Foreground = clGray
         FoldedCodeColor.FrameColor = clGray
+        FoldedCodeColor.FrameEdges = sfeAround
         MouseLinkColor.Background = clNone
         MouseLinkColor.Foreground = clBlue
+        MouseLinkColor.FrameEdges = sfeAround
         LineHighlightColor.Background = clNone
         LineHighlightColor.Foreground = clNone
+        LineHighlightColor.FrameEdges = sfeAround
         inline SynLeftGutterPartList1: TSynGutterPartList
           object SynGutterMarks1: TSynGutterMarks
             Width = 24
@@ -1387,6 +1425,7 @@ object VisWaptGUI: TVisWaptGUI
             MouseActions = <>
             MarkupInfo.Background = clBtnFace
             MarkupInfo.Foreground = clNone
+            MarkupInfo.FrameEdges = sfeAround
             DigitCount = 2
             ShowOnlyLineNumbersMultiplesOf = 1
             ZeroStart = False
@@ -1401,11 +1440,15 @@ object VisWaptGUI: TVisWaptGUI
           object SynGutterSeparator1: TSynGutterSeparator
             Width = 2
             MouseActions = <>
+            MarkupInfo.Background = clWhite
+            MarkupInfo.Foreground = clGray
+            MarkupInfo.FrameEdges = sfeAround
           end
           object SynGutterCodeFolding1: TSynGutterCodeFolding
             MouseActions = <>
             MarkupInfo.Background = clNone
             MarkupInfo.Foreground = clGray
+            MarkupInfo.FrameEdges = sfeAround
             MouseActionsExpanded = <>
             MouseActionsCollapsed = <>
           end
@@ -1431,7 +1474,7 @@ object VisWaptGUI: TVisWaptGUI
         end
         object EdRun: TEdit
           Left = 292
-          Height = 21
+          Height = 23
           Top = 5
           Width = 168
           OnKeyPress = EdRunKeyPress
@@ -1446,14 +1489,6 @@ object VisWaptGUI: TVisWaptGUI
           Action = ActEvaluate
           TabOrder = 2
         end
-        object Button6: TButton
-          Left = 580
-          Height = 25
-          Top = 2
-          Width = 144
-          Action = ActEvaluateVar
-          TabOrder = 3
-        end
       end
     end
   end
@@ -1461,27 +1496,27 @@ object VisWaptGUI: TVisWaptGUI
     Left = 0
     Height = 118
     Top = 558
-    Width = 1096
+    Width = 1074
     Align = alBottom
     ClientHeight = 118
-    ClientWidth = 1096
+    ClientWidth = 1074
     TabOrder = 1
     Visible = False
     object Panel7: TPanel
       Left = 1
       Height = 116
       Top = 1
-      Width = 1094
+      Width = 1072
       Align = alClient
       Caption = 'Panel7'
       ClientHeight = 116
-      ClientWidth = 1094
+      ClientWidth = 1072
       TabOrder = 1
       object MemoLog: TMemo
         Left = 1
         Height = 114
         Top = 1
-        Width = 481
+        Width = 459
         Align = alClient
         Lines.Strings = (
           ''
@@ -1489,7 +1524,7 @@ object VisWaptGUI: TVisWaptGUI
         TabOrder = 0
       end
       object jsonlog: TVirtualJSONInspector
-        Left = 487
+        Left = 465
         Height = 114
         Top = 1
         Width = 606
@@ -1517,7 +1552,7 @@ object VisWaptGUI: TVisWaptGUI
         TreeOptions.SelectionOptions = [toExtendedFocus]
       end
       object Splitter2: TSplitter
-        Left = 482
+        Left = 460
         Height = 114
         Top = 1
         Width = 5
@@ -1541,7 +1576,7 @@ object VisWaptGUI: TVisWaptGUI
     Left = 0
     Height = 5
     Top = 553
-    Width = 1096
+    Width = 1074
     Align = alBottom
     ResizeAnchor = akBottom
   end
@@ -1618,7 +1653,6 @@ object VisWaptGUI: TVisWaptGUI
     end
     object ActEvaluateVar: TAction
       Caption = 'Evaluer Variant'
-      OnExecute = ActEvaluateVarExecute
     end
     object ActSearchHost: TAction
       Category = 'hosts'
@@ -1649,11 +1683,13 @@ object VisWaptGUI: TVisWaptGUI
       Category = 'hosts'
       Caption = 'Supprimer'
       OnExecute = ActHostsDeleteExecute
+      ShortCut = 46
     end
     object ActDeletePackage: TAction
       Caption = 'Supprimer'
       OnExecute = ActDeletePackageExecute
       OnUpdate = ActDeletePackageUpdate
+      ShortCut = 46
     end
     object ActAdvancedMode: TAction
       Caption = 'ActAdvancedMode'
@@ -1690,6 +1726,24 @@ object VisWaptGUI: TVisWaptGUI
       Caption = 'Configuration WAPT locale'
       OnExecute = ActWAPTLocalConfigExecute
     end
+    object ActGotoHost: TAction
+      Caption = 'Rechercher une machine'
+      OnExecute = ActGotoHostExecute
+      ShortCut = 16454
+    end
+    object Action1: TAction
+      Caption = 'Action1'
+    end
+    object ActHostWaptUpgrade: TAction
+      Category = 'hosts'
+      Caption = 'Mettre à jour WAPT'
+      OnExecute = ActHostWaptUpgradeExecute
+    end
+    object ActHostUpgrade: TAction
+      Category = 'hosts'
+      Caption = 'Appliquer les mises à jour'
+      OnExecute = ActHostUpgradeExecute
+    end
   end
   object PopupMenuPackages: TPopupMenu
     left = 148
@@ -1725,7 +1779,7 @@ object VisWaptGUI: TVisWaptGUI
     left = 440
     top = 116
     object MenuItem5: TMenuItem
-      Caption = 'Fichier'
+      Caption = '&Fichier'
       object MenuItem6: TMenuItem
         Caption = 'Nouveau'
         Visible = False
@@ -1763,10 +1817,10 @@ object VisWaptGUI: TVisWaptGUI
       end
     end
     object MenuItem24: TMenuItem
-      Caption = 'Edition'
+      Caption = '&Edition'
     end
     object MenuItem15: TMenuItem
-      Caption = 'Outils'
+      Caption = '&Outils'
       object MenuItem29: TMenuItem
         Action = ActChangePassword
       end
@@ -1804,6 +1858,12 @@ object VisWaptGUI: TVisWaptGUI
     object MenuItem18: TMenuItem
       Action = ActEditHostPackage
     end
+    object MenuItem34: TMenuItem
+      Action = ActHostUpgrade
+    end
+    object MenuItem33: TMenuItem
+      Action = ActHostWaptUpgrade
+    end
     object MenuItem20: TMenuItem
       Action = ActHostsCopy
     end
@@ -1825,38 +1885,38 @@ object VisWaptGUI: TVisWaptGUI
     left = 332
     top = 272
     Bitmap = {
-      4C69020000001000000010000000FFFFFF00FFFFFF00FFFFFF00FFFFFF00E6B3
-      4D0ADAA7474BE5C58295FFFFFFFFEED7ADD3D9A64879DAA64645DBB64907FFFF
-      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00D8A94741D9A7
-      47DCD9A747FFDEB25FFFF3E4C6FFE6C484FFDEB25FFFDDAF58FFD9A747D7DBA6
-      4839FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00D9A64887D9A747FED9A7
-      47FFD9A747FFD9A747FFD9A747FFD9A747FFD9A747FFDAAA4DFFDFB462FFD9A7
-      47FDD9A74880FFFFFF00FFFFFF00FFFFFF00D9A64650D9A747FFD9A747FFD9A7
-      47FFD9A747FFD9A747FFD9A747FFD9A747FFD9A747FFD9A747FFDAAA4EFFE0B7
-      68FFD9A747FFDBA6464DFFFFFF00DEA64317D9A747EBD9A747FFD9A747FFDCAF
-      57FFE6C687FFE6C585FFE5C483FFE0B86AFFD9A747FFD9A747FFD9A747FFE1B9
-      6DFFD9A848FFD9A747E9DCA24616DAA7486ED9A747FFD9A747FFDEB25DFFE7C7
-      8BFFD9A747FFD9A747FFD9A747FFDEB361FFE1BA6FFFD9A747FFD9A747FFDAA9
-      4BFFE1BB70FFD9A747FFD9A74671D8A847ACD9A747FFD9A747FFE7C88DFFDCAD
-      54FFE0B86AFFDAAA4EFFD9A747FFD9A747FFE3BE78FFD9A747FFD9A747FFD9A7
-      47FFE3BE77FFD9A747FFDAA748ABD09A32B8C98D1FC5C68A1AD7DAB46EE8DCB8
-      77EBFFFFFFFFDDB76BD4D9A645F6D9A747FFE1BA6FFFDAA94BFFD9A747FFDCAF
-      57FFF0DCB6FFE1B96DFFD9A747E5C58818ECC58818FFC88D22FFD6AA5AFFD09E
-      43FFE4C792FFCB9531FFC58818F2C78D1EC4DDB870CFD29D39CED8A544F3E0B8
-      6AFFFFFFFFFFE7CC98E1C68A1CC8C58818B8C58818FFCB9430FFD4A653FFC588
-      18FFC78C1FFFCA932DFFC58818FFCD9736FFD3A551FFC58818FFC58818FDC88D
-      22F0E0BF82FFCA932EFFC58818B8C5881783C58818FFC58818FFDCB773FFC588
-      18FFC58818FFC78B1EFFCE9A3AFFC98F26FFC58818FFC58818FFC58818FFD09E
-      43FFCD9939FFC58818FFC5881783C688172DC58818F9C58818FFD09F44FFD2A2
-      4BFFC58818FFC58818FFC58818FFC58818FFC58818FFC58818FFCA912AFFDAB3
-      6BFFC58818FFC58818F9C688172DFFFFFF00C4891779C58818FFC58818FFDDB9
-      76FFF4E9D4FFDDB976FFC58818FFC58818FFC58819FFD8AE62FFD8AE62FFC588
-      19FFC58818FFC4891779FFFFFF00FFFFFF00AAAA0003C48819BBC58818FFCC96
-      32FFFAF4EAFFE9D2A8FFD7AE61FFD8AF64FFDAB26AFFC99129FFC58818FFC588
-      18FFC48819BBAAAA0003FFFFFF00FFFFFF00FFFFFF00AAAA0003C4871875C588
-      18F7C58818FFC58818FFC58818FFC58818FFC58818FFC58818FFC58818F7C487
-      1875FF800002FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00C489
-      1A27C5871880C58718B3C58818E6C58818E6C58718B3C5871880C4891A27FFFF
+      4C69040000001000000010000000FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000093
+      0800FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00009D09001276
+      18CD0F5D11B7FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00009B0900107817D0BAD7
+      BDFF569E5DFF004D02B4FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF0000960800107717D1B6D7B9FF529F
+      5AFF3A9941FF499351FF014501B2FFFFFF00FFFFFF0005A5140006A41400FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00009F0D000E7714D1B4DCB7FF51B25AFF069E
+      14FF0B9517FF105312DD04480B00FFFFFF0000930700348F3AED3F9244F9009F
+      0A00FFFFFF00FFFFFF000AAD1900117F19D1B3E3B7FF55C460FF15B725FF13A3
+      20FF024A05DB00460600FFFFFF0009851500448F49ECB5DDBAFFA9DAAEFF2F8F
+      35F607AB170013B5220017851ED1A5E2AAFF60D06AFF28C937FF22B02FFF034C
+      05DC00480600FFFFFF00FFFFFF00055207A45DB466FE6FD179FF9DDFA3FF98DF
+      9FFF238328F4207D25E299E5A0FF69DB74FF39D849FF31C23DFF035706DD0066
+      0800FFFFFF00FFFFFF00FFFFFF00FFFFFF00074F08BC24A130F953D75FFF88E4
+      91FF8EE596FF9FEAA5FF71E77CFF4AE759FF3FD64CFF08620BDD02991100FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00014F02BB24B130F94FE9
+      5EFF78EF84FF79F284FF58F567FF4AE756FF0D6C10DD1CBD2B00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00015404BD36BF
+      40F860FE6FFF69FF78FF58F065FF127216DD3ADA4900FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000458
+      07BB4ECB57F977EE81FF207422DC64F67200FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF000A5F0DBE1F8023CD90FF9C00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF0059F86700FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
       FF00FFFFFF00FFFFFF00FFFFFF00000000000000000000000000000000000000
       00000000000013509A010000000000000000002E7C0000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -1889,7 +1949,71 @@ object VisWaptGUI: TVisWaptGUI
       C2DA2C7AC3DA3A81C4DA4686C3D94786C4DA3C81C1DB2F79BEDB1E70BADC0E6C
       C3E60565C4EA0364C7EC487AA76B000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000
+      0000000000000000000000000000FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF006A85
+      FC236984FA7D6782F9DB6580F7F3637EF5F3617CF3DB5F7AF17D5D77EF23FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF006984FA536882
+      F9E66E83EEFF92A6F4FFA0B4F8FFA0B4F8FF91A6F3FF687DE9FF5973EBE65671
+      E953FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF006883F9536681F8F48497
+      F1FFA9BDFBFF8AA3F8FF6B89F6FF6B89F6FF89A2F8FFA8BCFAFF7F92ECFF526C
+      E4F44F69E253FFFFFF00FFFFFF00FFFFFF006781F822657FF6E58397F0FFA9BD
+      FBFF6382F5FF6382F5FFFFFFFFFFFFFFFFFF617EF3FF607CF3FFA6B9F9FF7B8D
+      EAFF4A64DEE54862DB22FFFFFF00FFFFFF00637EF57E6C81ECFFA9BDFBFF6382
+      F5FF6281F5FF6280F4FFFFFFFFFFFFFFFFFF5F7AF1FF5F78F0FF5D76EFFFA5B5
+      F8FF5D70DDFF435DD77EFFFFFF00FFFFFF005F7AF1DB91A6F3FF88A1F8FF6280
+      F4FF617EF3FF607CF3FFFFFFFFFFFFFFFFFF5D76EFFF5C73EEFF5B70ECFF8293
+      F1FF8998ECFF3E58D2DBFFFFFF00FFFFFF005B76EDF6A1B6F8FF6784F4FF607C
+      F3FF5F7AF1FF5F78F0FFFFFFFFFFFFFFFFFF5B70ECFF5A6EEBFF596CEAFF5F6F
+      E9FF9BA8F1FF3A53CEF6FFFFFF00FFFFFF005771E9F6A0B3F7FF6580F2FF5F78
+      F0FF5D76EFFF5C73EEFFD3D9FAFFFFFFFFFF596CEAFF5869E8FF5767E7FF5D6C
+      E7FF99A5F1FF354FCAF6FFFFFF00FFFFFF00526DE5DB8E9FF0FF8499F4FF5C73
+      EEFF5B70ECFF5A6EEBFF909DF1FFA6AFF3FF5767E7FF5665E6FF5562E5FF7D89
+      EBFF8591E7FF314AC6DBFFFFFF00FFFFFF004E68E17E6073E0FFA4B3F7FF5A6E
+      EBFF596CEAFF5869E8FFFFFFFFFFFFFFFFFF5562E5FF5461E3FF535FE2FF9FA9
+      F2FF5061D1FF2D46C27EFFFFFF00FFFFFF004963DC224660DAE57888E6FFA3B0
+      F5FF5767E7FF5665E6FF8992EDFF8892ECFF535FE2FF525DE1FF9FA9F2FF6F7D
+      DDFF2B44C0E52942BE22FFFFFF00FFFFFF00FFFFFF00425CD5533F59D3F47584
+      E3FFA1ACF4FF7F8BECFF5C67E4FF5B66E3FF7D87EAFF9FA8F1FF6F7CDDFF2943
+      BFF42741BD53FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF003A54CF533852
+      CCE65264D4FF8490E7FF95A0EEFF959FEDFF838EE5FF4C5DCEFF2841BDE6263F
+      BB53FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00334D
+      C823314BC67D2F48C4DB2C46C2F32A44C0F32842BEDB2640BC7D243EBA23FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00E6B3
+      4D0ADAA7474BE5C58295FFFFFFFFEED7ADD3D9A64879DAA64645DBB64907FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00D8A94741D9A7
+      47DCD9A747FFDEB25FFFF3E4C6FFE6C484FFDEB25FFFDDAF58FFD9A747D7DBA6
+      4839FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00D9A64887D9A747FED9A7
+      47FFD9A747FFD9A747FFD9A747FFD9A747FFD9A747FFDAAA4DFFDFB462FFD9A7
+      47FDD9A74880FFFFFF00FFFFFF00FFFFFF00D9A64650D9A747FFD9A747FFD9A7
+      47FFD9A747FFD9A747FFD9A747FFD9A747FFD9A747FFD9A747FFDAAA4EFFE0B7
+      68FFD9A747FFDBA6464DFFFFFF00DEA64317D9A747EBD9A747FFD9A747FFDCAF
+      57FFE6C687FFE6C585FFE5C483FFE0B86AFFD9A747FFD9A747FFD9A747FFE1B9
+      6DFFD9A848FFD9A747E9DCA24616DAA7486ED9A747FFD9A747FFDEB25DFFE7C7
+      8BFFD9A747FFD9A747FFD9A747FFDEB361FFE1BA6FFFD9A747FFD9A747FFDAA9
+      4BFFE1BB70FFD9A747FFD9A74671D8A847ACD9A747FFD9A747FFE7C88DFFDCAD
+      54FFE0B86AFFDAAA4EFFD9A747FFD9A747FFE3BE78FFD9A747FFD9A747FFD9A7
+      47FFE3BE77FFD9A747FFDAA748ABD09A32B8C98D1FC5C68A1AD7DAB46EE8DCB8
+      77EBFFFFFFFFDDB76BD4D9A645F6D9A747FFE1BA6FFFDAA94BFFD9A747FFDCAF
+      57FFF0DCB6FFE1B96DFFD9A747E5C58818ECC58818FFC88D22FFD6AA5AFFD09E
+      43FFE4C792FFCB9531FFC58818F2C78D1EC4DDB870CFD29D39CED8A544F3E0B8
+      6AFFFFFFFFFFE7CC98E1C68A1CC8C58818B8C58818FFCB9430FFD4A653FFC588
+      18FFC78C1FFFCA932DFFC58818FFCD9736FFD3A551FFC58818FFC58818FDC88D
+      22F0E0BF82FFCA932EFFC58818B8C5881783C58818FFC58818FFDCB773FFC588
+      18FFC58818FFC78B1EFFCE9A3AFFC98F26FFC58818FFC58818FFC58818FFD09E
+      43FFCD9939FFC58818FFC5881783C688172DC58818F9C58818FFD09F44FFD2A2
+      4BFFC58818FFC58818FFC58818FFC58818FFC58818FFC58818FFCA912AFFDAB3
+      6BFFC58818FFC58818F9C688172DFFFFFF00C4891779C58818FFC58818FFDDB9
+      76FFF4E9D4FFDDB976FFC58818FFC58818FFC58819FFD8AE62FFD8AE62FFC588
+      19FFC58818FFC4891779FFFFFF00FFFFFF00AAAA0003C48819BBC58818FFCC96
+      32FFFAF4EAFFE9D2A8FFD7AE61FFD8AF64FFDAB26AFFC99129FFC58818FFC588
+      18FFC48819BBAAAA0003FFFFFF00FFFFFF00FFFFFF00AAAA0003C4871875C588
+      18F7C58818FFC58818FFC58818FFC58818FFC58818FFC58818FFC58818F7C487
+      1875FF800002FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00C489
+      1A27C5871880C58718B3C58818E6C58818E6C58718B3C5871880C4891A27FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00
     }
   end
 end

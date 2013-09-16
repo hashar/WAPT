@@ -1,19 +1,24 @@
 #define Company "Tranquil IT Systems"
-#define AppName "WAPT"
 #define SrcApp AddBackslash(SourcePath) + "..\wapt-get.exe"
 #define FileVerStr GetFileVersion(SrcApp)
 #define StripBuild(str VerStr) Copy(VerStr, 1, RPos(".", VerStr)-1)
 #define AppVerStr StripBuild(FileVerStr)
 
-#define default_repo_url "http://srvwapt:8080/wapt"
+#define default_repo_url "http://srvlts1/wapt"
 
-#define default_wapt_server "http://srvwapt:8080"
+#define default_wapt_server "http://srvlts1:8080"
 #define default_update_period "120"
 #define default_update_maxruntime "30"
 
-#define output_dir "."
+#define output_dir "C:\tranquilit\wapt\waptserver\repository\wapt"
 
 ;#define waptserver 
+#ifdef waptserver
+#define AppName "WAPT Server"
+#else
+#define AppName "WAPT"
+#endif
+
 
 [Files]
 Source: "..\DLLs\*"; DestDir: "{app}\DLLs"; Flags: createallsubdirs recursesubdirs
@@ -34,7 +39,6 @@ Source: "..\python27.dll"; DestDir: "{app}";
 Source: "..\pythoncom27.dll"; DestDir: "{app}";
 Source: "..\pythoncomloader27.dll"; DestDir: "{app}";
 Source: "..\pywintypes27.dll"; DestDir: "{app}";
-Source: "..\waptservice.exe"; DestDir: "{app}";  BeforeInstall: BeforeWaptServiceInstall('waptservice.exe'); AfterInstall: AfterWaptServiceInstall('waptservice.exe'); Tasks: installService
 Source: "..\wapt-get.ini.tmpl"; DestDir: "{app}"; 
 Source: "..\wapt-get.py"; DestDir: "{app}"; 
 Source: "..\keyfinder.py"; DestDir: "{app}"; 
@@ -53,18 +57,24 @@ Source: "..\wapttray.exe"; DestDir: "{app}"; BeforeInstall: killtask('wapttray.e
 Source: "..\vc_redist\*"; DestDir: "{app}\vc_redist";
 Source: "..\lib\site-packages\M2Crypto\libeay32.dll" ; DestDir: "{app}"; 
 Source: "..\lib\site-packages\M2Crypto\ssleay32.dll" ; DestDir: "{app}";
+
+
+Source: "..\waptpython.exe"; DestDir: "{app}";
+Source: "..\waptservice*.py"; DestDir: "{app}";
+;Source: "..\waptservice.ini"; DestDir: "{app}";
+Source: "..\waptservice.exe"; DestDir: "{app}";  BeforeInstall: BeforeWaptServiceInstall('waptservice.exe'); AfterInstall: AfterWaptServiceInstall('waptservice.exe'); Tasks: installService
+
 #ifdef waptserver
 Source: "waptserver.iss"; DestDir: "{app}\waptsetup";
-Source: "..\waptpython.exe"; DestDir: "{app}";
 Source: "..\waptserver\waptserver.ini.template"; DestDir: "{app}\waptserver"; DestName: "waptserver.ini"
 Source: "..\waptserver\*.py"; DestDir: "{app}\waptserver";       
 Source: "..\waptserver\*.template"; DestDir: "{app}\waptserver";  
 Source: "..\waptserver\templates\*"; DestDir: "{app}\waptserver\templates"; Flags: createallsubdirs recursesubdirs
 Source: "..\waptserver\scripts\*"; DestDir: "{app}\waptserver\scripts"; Flags: createallsubdirs recursesubdirs
 Source: "..\waptserver\mongodb\mongod.*"; DestDir: "{app}\waptserver\mongodb"; Flags: createallsubdirs recursesubdirs
-Source: "..\python27.dll"; DestDir: "{sys}"; Flags: sharedfile 32bit;
+; Source: "..\python27.dll"; DestDir: "{sys}"; Flags: sharedfile 32bit;
 #endif
-
+Source: "..\python27.dll"; DestDir: "{sys}"; Flags: sharedfile 32bit;
 
 [Dirs]
 #ifdef waptserver
@@ -88,7 +98,7 @@ UninstallDisplayName={#AppName} {#AppVerStr}
 VersionInfoVersion={#FileVerStr}
 VersionInfoTextVersion={#AppVerStr}
 AppCopyright={#Company}
-DefaultDirName="C:\{#AppName}"
+DefaultDirName="C:\wapt"
 DefaultGroupName={#AppName}
 ChangesEnvironment=True
 AppPublisher={#Company}
@@ -111,6 +121,8 @@ MinVersion=0,5.0sp4
 LicenseFile=..\COPYING.txt
 RestartIfNeededByRun=False
 SetupIconFile=..\wapt.ico
+
+;SignTool=kSign /d $qWAPT Client$q /du $qhttp://www.tranquil-it-systems.fr$q $f
 
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
@@ -174,13 +186,15 @@ Filename: "{app}\waptserver\mongodb\mongod.exe"; Parameters: " --config c:\wapt\
 
 [Code]
 #include "services.iss"
+
 var
   rbCustomRepo: TNewRadioButton;
   rbDnsRepo: TNewRadioButton;
   teWaptUrl,teWaptServerUrl: TEdit;
   lb1:TLabel;
   CustomPage: TWizardPage;
-
+  
+  
   
 procedure InitializeWizard;
 begin
@@ -225,6 +239,7 @@ begin
     teWaptServerUrl.Text := GetIniString('Global', 'wapt_server', '{#default_wapt_server}', ExpandConstant('{app}\wapt-get.ini'));
     rbCustomRepo.Checked := teWaptUrl.Text <> ''; 
     rbDnsRepo.Checked := teWaptUrl.Text = ''; 
+    lb1.Visible := isTaskSelected('useWaptServer');
     tewaptServerUrl.Visible := isTaskSelected('useWaptServer');
   end
 end;
@@ -249,14 +264,29 @@ begin
 end;
 
 
-function InitializeSetup(): Boolean;
+function InitializeSetup():boolean;
+var
+  ResultCode: integer;
 begin
+
+  // terminate waptconsole
+  if Exec('taskkill', '/t /im "waptconsole.exe" /f', '', SW_SHOW,
+     ewWaitUntilTerminated, ResultCode) then
+  begin
+    // handle success if necessary; ResultCode contains the exit code
+  end
+  else begin
+    // handle failure if necessary; ResultCode contains the error code
+  end;
+
+  // Proceed Setup
+
   if ServiceExists('waptservice') then
     SimpleStopService('waptservice',True,True);
   if ServiceExists('waptserver') then
     SimpleStopService('waptserver',True,True);
-  if ServiceExists('waptmongod') then
-    SimpleStopService('waptmongod',True,True);
+  if ServiceExists('waptmongodb') then
+    SimpleStopService('waptmongodb',True,True);
   
 
   Result := True;
@@ -268,9 +298,33 @@ begin
     SimpleStartService('waptservice',True,True); 
 end;
 
+function RunCmd(cmd:String;RaiseOnError:Boolean):String;
+var
+  ErrorCode: Integer;
+  TmpFileName, ExecStdout: string;
+begin
+  Result := 'Error';
+  TmpFileName := ExpandConstant('{tmp}') + '\runresult.txt';
+  try
+    Exec('cmd','/C '+cmd+'  > "' + TmpFileName + '"', '', SW_HIDE,
+      ewWaitUntilTerminated, ErrorCode);
+    if RaiseOnError and (ErrorCode>0) then
+       RaiseException('La commande '+cmd+' a renvoyé le code d''erreur '+intToStr(ErrorCode));
+    if LoadStringFromFile(TmpFileName, ExecStdout) then 
+      result := ExecStdOut
+    else 
+      result:='';
+  finally
+    if FileExists(TmpFileName) then
+	     DeleteFile(TmpFileName);
+  end;
+end;
+
 procedure AfterWaptServiceinstall(exe:String);
 var
   ErrorCode: Integer;
+  ExecStdout: string;
+  winver: TWindowsVersion ;
 begin
 //  SimpleCreateService(
 //   'waptservice',
@@ -280,12 +334,29 @@ begin
 //    '','', 
 //    False, 
 //    False);
-  if not ShellExec('', ExpandConstant('{app}\waptservice.exe'),
-     '--install', '{app}', SW_HIDE, True, ErrorCode) then
-  begin
-    RaiseException('Error installing waptservice:'+intToStr(ErrorCode));
-  end;
+  if not Exec(ExpandConstant('{app}\waptpython.exe'),
+     ExpandConstant('{app}\waptservice\waptservice_servicewrapper.py --startup=auto install'), 
+     '', 
+     SW_HIDE, 
+     ewWaitUntilTerminated, ErrorCode) then
+    RaiseException('Error installing waptservice: '+intToStr(ErrorCode));
    
+  GetWindowsVersionEx(winver);
+  if winver.Major>=6 then 
+  // for win7
+  begin  
+    ExecStdOut := RunCmd('netsh advfirewall firewall show rule name="waptservice 8088"',False);
+    if pos('Ok.',ExecStdOut)<=0 then
+      if pos('Ok.',RunCmd('netsh advfirewall firewall add rule name="waptservice 8088" dir=in action=allow protocol=TCP localport=8088',True))<=0 then 
+        RaiseException('could not open firewall port 8088 for remote management');
+  end
+  else
+  begin
+    ExecStdOut := RunCmd('netsh.exe firewall show portopening',True);
+    if pos('waptservice 8088',ExecStdOut)<=0 then
+      if pos('Ok.',RunCmd('netsh.exe firewall add portopening name="waptservice 8088" port 8088 protocol=TCP',True))<=0 then
+        RaiseException('could not open firewall port 8088 for remote management')
+	end;
 end;
 
 procedure BeforeWaptServiceinstall(exe:String);
@@ -331,4 +402,3 @@ begin
   Result := Pos(';' + UpperCase(ExpandConstant(Param)) + ';', UpperCase(OrigPath)) = 0;
   
 end;
-

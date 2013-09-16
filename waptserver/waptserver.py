@@ -1,3 +1,26 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# -----------------------------------------------------------------------
+#    This file is part of WAPT
+#    Copyright (C) 2013  Tranquil IT Systems http://www.tranquil.it
+#    WAPT aims to help Windows systems administrators to deploy
+#    setup and update applications on users PC.
+#
+#    WAPT is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    WAPT is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
+#
+# -----------------------------------------------------------------------
+
 from flask import request, Flask,Response, send_from_directory, session, g, redirect, url_for, abort, render_template, flash
 
 import time
@@ -8,15 +31,19 @@ import pymongo
 import os
 from pymongo import MongoClient
 from werkzeug import secure_filename
-from waptpackage import update_packages
+from waptpackage import update_packages,PackageEntry
 from functools import wraps
 import logging
 import ConfigParser
 import  cheroot.wsgi, cheroot.ssllib.ssl_builtin
 import logging
+import codecs
+import zipfile
 import pprint
+import socket
+import requests
 
-__version__ = "0.1.1"
+__version__ = "0.7.4"
 
 config = ConfigParser.RawConfigParser()
 wapt_root_dir = ''
@@ -57,6 +84,8 @@ mongodb_ip = "127.0.0.1"
 wapt_folder = ""
 wapt_user = ""
 wapt_password = ""
+
+waptservice_port = 8088
 
 if config.has_section('options'):
     if config.has_option('options', 'wapt_user'):
@@ -224,9 +253,44 @@ def get_client_software_list(uuid=""):
                     status=200,
                     mimetype="application/json")
 
+
+def packagesFileToList(pathTofile):
+    listPackages = codecs.decode(zipfile.ZipFile(pathTofile).read(name='Packages'),'utf-8')
+    packages = []
+
+    def add_package(lines):
+        package = PackageEntry()
+        package.load_control_from_wapt(lines)
+        package.filename = package.make_package_filename()
+        packages.append(package)
+
+
+    lines = []
+    for line in listPackages.splitlines():
+        # new package
+        if line.strip()=='':
+            add_package(lines)
+            lines = []
+            # add ettribute to current package
+        else:
+            lines.append(line)
+
+    if lines:
+        add_package(lines)
+        lines = []
+
+    return packages
+
 @app.route('/client_package_list/<string:uuid>')
 def get_client_package_list(uuid=""):
     packages = get_host_data(uuid, {"packages":1})
+    repo_packages = packagesFileToList(os.path.join(wapt_folder, 'Packages'))
+    for p in packages['packages']:
+        package = PackageEntry()
+        package.load_control_from_dict(p)        
+        if [ x for x in repo_packages if package.package == x.package and package < x ]:
+            p['install_status'] = 'NEED-UPGRADE'
+            
     return  Response(response=json.dumps(packages['packages']),
                     status=200,
                     mimetype="application/json")
@@ -249,17 +313,23 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-@app.route('/upload_package',methods=['POST'])
+@app.route('/upload_package/<string:filename>',methods=['POST'])
 @requires_auth
-def upload_package():
+def upload_package(filename=""):
     try:
         if request.method == 'POST':
-            file = request.files['file']
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(wapt_folder, filename))
-                update_packages(wapt_folder)
-                return "ok"
+            if filename and allowed_file(filename): 
+                filename = os.path.join(wapt_folder, secure_filename(filename))
+                with open(filename, 'w') as f:
+                    f.write(request.stream.read())      
+                
+                if not os.path.isfile(filename):
+                    "Error during uploading"
+                if PackageEntry().load_control_from_wapt(filename):
+                    update_packages(wapt_folder)
+                    return "ok"            
+                else:
+                    "Is not a valid wapt file"
             else:
                 return "wrong file type"
         else:
@@ -267,7 +337,9 @@ def upload_package():
     except:
         e = sys.exc_info()
         return str(e)
-
+    
+    return "ok"
+        
 @app.route('/upload_host',methods=['POST'])
 @requires_auth
 def upload_host():
@@ -288,7 +360,45 @@ def upload_host():
         e = sys.exc_info()
         return str(e)
 
-@app.route('/login',methods=['POST'])
+
+
+@app.route('/waptupgrade_host/<string:ip>')
+def waptupgrade_host(ip):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect((ip,waptservice_port))
+        s.close
+        if ip and waptservice_port:
+            print "Upgrading %s..." % ip
+            r = requests.get("http://%s:%d/waptupgrade" % ( ip, waptservice_port))
+            return r.text
+        
+        else:
+            return "Le port de waptservice n'est pas défini"                
+     
+    except Exception as e:
+        return "Impossible de joindre le web service: %s" % e
+
+@app.route('/upgrade_host/<string:ip>')
+def waptupgrade_host(ip):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect((ip,waptservice_port))
+        s.close
+        if ip and waptservice_port:
+            print "Upgrading %s..." % ip
+            r = requests.get("http://%s:%d/upgrade" % ( ip, waptservice_port))
+            return r.text
+        
+        else:
+            return "Le port de waptservice n'est pas défini"                
+     
+    except Exception as e:
+        return "Impossible de joindre le web service: %s" % e
+
+@app.route('/login',methods=['POST'])    
 def login():
     try:
         if request.method == 'POST':

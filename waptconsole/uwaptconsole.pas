@@ -5,11 +5,11 @@ unit uwaptconsole;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, SynHighlighterPython, SynEdit, SynGutterBase,
-  SynGutterMarks, SynGutterLineNumber, SynGutterChanges, SynGutter,
-  SynGutterCodeFolding, vte_json, Forms, Controls, Graphics, Dialogs, ExtCtrls,
-  StdCtrls, ComCtrls, ActnList, Menus, fpJson, jsonparser, superobject,
-  UniqueInstance, VirtualTrees, VarPyth, Windows, LMessages, ImgList, SOGrid;
+  Classes, SysUtils, FileUtil, SynEdit,SynHighlighterPython,
+  vte_json, Forms, Controls, Graphics,
+  Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus, jsonparser,
+  superobject, UniqueInstance, VirtualTrees, VarPyth, Windows, ImgList,
+  SOGrid;
 
 type
 
@@ -35,7 +35,6 @@ type
     ActAdvancedMode: TAction;
     ActChangePassword: TAction;
     ActGotoHost: TAction;
-    Action1: TAction;
     ActHostWaptUpgrade: TAction;
     ActHostUpgrade: TAction;
     ActWAPTLocalConfig: TAction;
@@ -162,7 +161,7 @@ type
     pgPackages: TTabSheet;
     pgSoftwares: TTabSheet;
     pgHostPackage: TTabSheet;
-    pgTISRepo: TTabSheet;
+    pgExternalRepo: TTabSheet;
     testedit: TSynEdit;
     jsonlog: TVirtualJSONInspector;
     UniqueInstance1: TUniqueInstance;
@@ -246,6 +245,7 @@ type
     { private declarations }
     downloadStopped: boolean;
     procedure GridLoadData(grid: TSOGrid; jsondata: string);
+    procedure Login;
     procedure PythonOutputSendData(Sender: TObject; const Data: ansistring);
     procedure TreeLoadData(tree: TVirtualJSONInspector; jsondata: string);
     procedure UpdateHostPages(Sender: TObject);
@@ -262,7 +262,7 @@ implementation
 
 uses LCLIntf, IniFiles, uvisprivatekeyauth, uvisloading, tisstrings, soutils,
   waptcommon, tiscommon, uVisCreateKey, uVisCreateWaptSetup, uvisOptionIniFile,
-  dmwaptpython, uviseditpackage, uvispassword, uviswaptconfig,uvischangepassword;
+  dmwaptpython, uviseditpackage, uvislogin, uviswaptconfig,uvischangepassword;
 
 {$R *.lfm}
 
@@ -282,6 +282,7 @@ end;
 procedure TVisWaptGUI.ChangerClick(Sender: TObject);
 begin
   ActWAPTLocalConfigExecute(self);
+  urlExternalRepo.Caption := 'Url: ' + WaptExternalRepo;
 end;
 
 procedure TVisWaptGUI.CheckBoxMajChange(Sender: TObject);
@@ -401,8 +402,10 @@ begin
   begin
     N := GridPackages.GetFirstSelected;
     selects := GridPackages.SelectedCount;
+
     with  Tvisloading.Create(Self) do
       try
+        ShowModal;
         while N <> nil do
         begin
           package := GridPackages.GetCellStrValue(N, 'package') +
@@ -439,7 +442,6 @@ var
   N: PVirtualNode;
 
 begin
-
   N := GridPackages1.GetFirstSelected;
   while N <> nil do
   begin
@@ -472,7 +474,7 @@ begin
         begin
           dependsList := DMPython.RunJSON(
             format('waptdevutils.searchLastPackageTisRepo(r"%s","%s")',
-            [waptpath + '\wapt-get.ini', depends]));
+            [AppIniFilename, depends]));
           for i := 0 to dependsList.AsArray.Length - 1 do
           begin
             chargement.Caption :=
@@ -491,7 +493,7 @@ begin
         end;
         sourceDir := DMPython.RunJSON(
           Format('waptdevutils.duplicate_from_tis_repo(r"%s",r"%s",%S)',
-          [waptpath + '\wapt-get.ini', filePath, dependsPath.AsString])).AsString;
+          [AppIniFilename, filePath, dependsPath.AsString])).AsString;
 
         if sourceDir <> 'error' then
         begin
@@ -658,7 +660,7 @@ begin
                 PChar(waptpath + '\ssl\' + ExtractFileName(certFile)), True) then
                 ShowMessage('Erreur lors de la copie de la clé publique');
 
-              with TINIFile.Create(WaptIniFilename) do
+              with TINIFile.Create(AppIniFilename) do
                 try
                   WriteString('global', 'private_key', Result.S['pem_filename']);
                 finally
@@ -737,7 +739,7 @@ var
 begin
   with TVisCreateWaptSetup.Create(self) do
     try
-      ini := TIniFile.Create(WaptIniFilename);
+      ini := TIniFile.Create(AppIniFilename);
       try
         repeat
           edWaptServerUrl.Text := ini.ReadString('global', 'wapt_server', '');
@@ -1020,7 +1022,9 @@ procedure TVisWaptGUI.ActUpdateExecute(Sender: TObject);
 var
   res: variant;
 begin
-  res := MainModule.mywapt.update(NOARGS);
+  //test avec un variant ;)
+  res := MainModule.mywapt.update(register:=False);
+  ShowMessage(res.__getitem__('repos').__getitem__(0));
   ActSearchPackageExecute(Sender);
 end;
 
@@ -1039,7 +1043,7 @@ procedure TVisWaptGUI.ActWAPTLocalConfigExecute(Sender: TObject);
 var
   inifile: TIniFile;
 begin
-  inifile := TIniFile.Create(WaptIniFilename);
+  inifile := TIniFile.Create(AppIniFilename);
   try
 
     with TVisWAPTConfig.Create(self) do
@@ -1077,6 +1081,10 @@ begin
           //inifile.WriteString('global','default_sources_url',eddefault_sources_url.text);
           ActUpdateWaptGetINI.Execute;
           ActUpdate.Execute;
+          GridPackages.Clear;
+          GridPackages1.Clear;
+          PageControl1Change(PageControl1);
+
         end;
       finally
         Free;
@@ -1093,7 +1101,7 @@ var
   packages: ISuperObject;
 begin
   expr := format('waptdevutils.updateTisRepo(r"%s","%s")',
-    [waptpath + '\wapt-get.ini', EdSearch1.Text]);
+    [AppIniFilename , EdSearch1.Text]);
   packages := DMPython.RunJSON(expr);
   GridPackages1.Data := packages;
   GridPackages1.Header.AutoFitColumns(False);
@@ -1154,10 +1162,6 @@ begin
 end;
 
 procedure TVisWaptGUI.FormCreate(Sender: TObject);
-var
-  done: boolean = False;
-  resp: ISuperObject;
-
 begin
   if not checkReadWriteAccess(ExtractFileDir(WaptDBPath)) then
   begin
@@ -1167,17 +1171,17 @@ begin
 
   waptpath := ExtractFileDir(ParamStr(0));
 
-  DMPython.WaptConfigFileName := waptpath + '\wapt-get.ini';
-  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
+end;
 
-  ActUpdateWaptGetINIExecute(Self);
+procedure TVisWaptGUI.Login;
+var
+  done: boolean = False;
+  resp: ISuperObject;
 
-  MemoLog.Clear;
-
-  PageControl1.ActivePage := pgInventory;
+begin
   if waptServerPassword = '' then
   begin
-    with TVisPassword.Create(Self) do
+    with TVisLogin.Create(Self) do
       try
         edWaptServerName.Text := GetWaptServerURL;
         repeat
@@ -1211,13 +1215,16 @@ begin
         Free;
       end;
   end;
-
-  urlExternalRepo.Caption := 'Url: ' + WaptExternalRepo;
-
 end;
 
 procedure TVisWaptGUI.FormShow(Sender: TObject);
 begin
+  MemoLog.Clear;
+  DMPython.WaptConfigFileName := AppIniFilename;
+  DMPython.PythonOutput.OnSendData := @PythonOutputSendData;
+  ActUpdateWaptGetINIExecute(Self);
+  Login;
+  PageControl1.ActivePage := pgInventory;
   PageControl1Change(Sender);
 end;
 
@@ -1383,7 +1390,7 @@ begin
     if GridPackages.Data = nil then
       ActSearchPackage.Execute;
   end
-  else if PageControl1.ActivePage = pgTISRepo then
+  else if PageControl1.ActivePage = pgExternalRepo then
   begin
     CopyMenu(PopupMenuPackagesTIS, MenuItem24);
     if GridPackages1.Data = nil then

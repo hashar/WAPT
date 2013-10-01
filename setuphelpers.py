@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.7.4"
+__version__ = "0.7.6"
 import os
 import sys
 import logging
@@ -78,7 +78,6 @@ my_documents= winshell.my_documents
 recent = winshell.recent
 sendto = winshell.sendto
 
-
 def ensure_dir(f):
     """Be sure the directory of f exists on disk. Make it if not"""
     d = os.path.dirname(f)
@@ -112,7 +111,7 @@ def ensure_unicode(data):
         return unicode(data, 'utf-8', 'replace')
     return unicode(data)
 
-def create_shortcut(path, target='', wDir='', icon=''):
+def create_shortcut(path, target='', arguments='', wDir='', icon=''):
     ext = path[-3:]
     if ext == 'url':
         shortcut = file(path, 'w')
@@ -120,43 +119,43 @@ def create_shortcut(path, target='', wDir='', icon=''):
         shortcut.write('URL=%s' % target)
         shortcut.close()
     else:
-        winshell.CreateShortcut(path,target,'',wDir,(icon,0),'')
+        winshell.CreateShortcut(path,target,arguments,wDir,(icon,0),'')
 
-def create_desktop_shortcut(label, target='', wDir='', icon=''):
+def create_desktop_shortcut(label, target='', arguments ='', wDir='', icon=''):
     if not (label.endswith('.lnk') or label.endswith('.url')):
         label += '.lnk'
     sc_path = os.path.join(desktop(1),label)
     if os.path.isfile(sc_path):
         os.remove(sc_path)
-    create_shortcut(sc_path,target,wDir,icon)
+    create_shortcut(sc_path,target,arguments, wDir,icon)
     return sc_path
 
 
-def create_user_desktop_shortcut(label, target='', wDir='', icon=''):
+def create_user_desktop_shortcut(label, target='',arguments='', wDir='', icon=''):
     if not (label.endswith('.lnk') or label.endswith('.url')):
         label += '.lnk'
     sc_path = os.path.join(desktop(0),label)
     if os.path.isfile(sc_path):
         os.remove(sc_path)
-    create_shortcut(sc_path,target,wDir,icon)
+    create_shortcut(sc_path,target,arguments,wDir,icon)
     return sc_path
 
-def create_programs_menu_shortcut(label, target='', wDir='', icon=''):
+def create_programs_menu_shortcut(label, target='', arguments='', wDir='', icon=''):
     if not (label.endswith('.lnk') or label.endswith('.url')):
         label += '.lnk'
     sc = os.path.join(start_menu(1),label)
     if os.path.isfile(sc):
         os.remove(sc)
-    create_shortcut(sc,target,wDir,icon)
+    create_shortcut(sc,target,arguments,wDir,icon)
     return sc
 
-def create_user_programs_menu_shortcut(label, target='', wDir='', icon=''):
+def create_user_programs_menu_shortcut(label, target='', arguments='', wDir='', icon=''):
     if not (label.endswith('.lnk') or label.endswith('.url')):
         label += '.lnk'
     sc = os.path.join(start_menu(0),label)
     if os.path.isfile(sc):
         os.remove(sc)
-    create_shortcut(sc,target,wDir,icon)
+    create_shortcut(sc,target,arguments,wDir,icon)
     return sc
 
 def wgets(url,proxies=None):
@@ -393,6 +392,7 @@ def run(*cmd,**args):
         timeout=600 (seconds) after that time, a TimeoutExpired is raised
         if return code of cmd is non zero, a CalledProcessError is raised
         on_write : called when a new line is printed on stdout or stderr by the subprocess
+        accept_returncodes=[0,1601]
     """
     logger.info(u'Run "%s"' % (cmd,))
     output = []
@@ -431,8 +431,17 @@ def run(*cmd,**args):
         proc.kill()
         raise TimeoutExpired(cmd,timeout,''.join(output))
     proc.returncode = _subprocess.GetExitCodeProcess(proc._handle)
-    if proc.returncode<>0:
+    if not 'accept_returncodes' in args:
+        # 1603 : souvent renvoyé quand déjà installé.
+        # 3010 : reboot required.
+        accept_returncodes = [0,1603,3010]
+    if not proc.returncode in accept_returncodes:
         raise subprocess.CalledProcessError(proc.returncode,cmd,''.join(output))
+    else:
+        if proc.returncode == 0:
+            logger.info('%s command returns code %s' % (cmd,proc.returncode))
+        else:
+            logger.warning('%s command returns code %s' % (cmd,proc.returncode))
     return ensure_unicode(''.join(output))
 
 def run_old(*cmd,**args):
@@ -542,7 +551,7 @@ def get_computername():
     return socket.gethostname()
 
 def get_hostname():
-    """Return host fully qualified domain name"""
+    """Return host fully qualified domain name in lower case"""
     return socket.getfqdn().lower()
 
 def get_domain_fromregistry():
@@ -822,10 +831,17 @@ def unregister_uninstall(uninstallkey,win64app=False):
         else:
             root = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\"+uninstallkey
         #key = reg_openkey_noredir(_winreg.HKEY_LOCAL_MACHINE,root)
-        _winreg.DeleteKeyEx(_winreg.HKEY_LOCAL_MACHINE,root.encode(locale.getpreferredencoding()))
+        try:
+            _winreg.DeleteKeyEx(_winreg.HKEY_LOCAL_MACHINE,root.encode(locale.getpreferredencoding()))
+        except WindowsError,e:
+            logger.warning('Unable to remove key %s, error : %s' % (ensure_unicode(root),ensure_unicode(e)))
+
     else:
         root = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\"+uninstallkey
-        _winreg.DeleteKey(_winreg.HKEY_LOCAL_MACHINE,root.encode(locale.getpreferredencoding()))
+        try:
+            _winreg.DeleteKey(_winreg.HKEY_LOCAL_MACHINE,root.encode(locale.getpreferredencoding()))
+        except WindowsError,e:
+            logger.warning('Unable to remove key %s, error : %s' % (ensure_unicode(root),ensure_unicode(e)))
 
 wincomputername = win32api.GetComputerName
 windomainname = win32api.GetDomainName

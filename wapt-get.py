@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.7.4"
+__version__ = "0.7.8"
 
 import sys
 import os
@@ -34,6 +34,7 @@ from waptpackage import PackageEntry
 from waptpackage import update_packages
 from common import ppdicttable
 from common import jsondump
+import common
 import setuphelpers
 from setuphelpers import ensure_unicode
 
@@ -103,7 +104,7 @@ action is either :
 
 """
 
-parser=OptionParser(usage=usage,version="%prog " + __version__+' setuphelpers '+setuphelpers.__version__)
+parser=OptionParser(usage=usage,version='wapt-get.py ' + __version__+' common.py '+common.__version__+' setuphelpers.py '+setuphelpers.__version__)
 parser.add_option("-c","--config", dest="config", default=os.path.join(os.path.dirname(sys.argv[0]),'wapt-get.ini') , help="Config file full path (default: %default)")
 parser.add_option("-l","--loglevel", dest="loglevel", default=None, type='choice',  choices=['debug','warning','info','error','critical'], metavar='LOGLEVEL',help="Loglevel (default: warning)")
 parser.add_option("-d","--dry-run",    dest="dry_run",    default=False, action='store_true', help="Dry run (default: %default)")
@@ -267,7 +268,7 @@ def main():
                     if action=='install':
                         # abort if there is already a running install in progress
                         if running_install:
-                            raise Exception('Running wapt-get in progress, please wait...')
+                            raise Exception('Running wapt progresses (%s), please wait...' % (running_install,))
                         result= {'install':[ (args[1],mywapt.install_wapt(args[1],params_dict = params_dict))]}
                 else:
                     print u"%sing WAPT packages %s" % (action,','.join(args[1:]))
@@ -276,7 +277,7 @@ def main():
                         mywapt.update()
 
                     if running_install and action=='install':
-                        raise Exception('Running wapt-get in progress, please wait...')
+                        raise Exception('Running wapt processes (%s) in progress, please wait...' % (running_install,))
                     result = mywapt.install(args[1:],force = options.force,params_dict = params_dict,
                         download_only= (action=='download'), usecache = not (action == 'download' and options.force)
                         )
@@ -373,7 +374,7 @@ def main():
                     sys.exit(1)
                 # abort if there is already a running install in progress
                 if running_install:
-                    raise Exception('Running wapt-get in progress, please wait...')
+                    raise Exception('Running wapt processes (%s) in progress, please wait...' % (running_install,))
                 removed = []
                 errors = []
                 for packagename in args[1:]:
@@ -436,7 +437,7 @@ def main():
             elif action=='update':
                 # abort if there is already a running install in progress
                 if running_install:
-                    raise Exception('Running wapt-get in progress, please wait...')
+                    raise Exception('Running wapt processes (%s) in progress, please wait...' % (running_install,))
                 print u"Update package list"
                 result = mywapt.update(force=options.force)
                 if options.json_output:
@@ -451,7 +452,7 @@ def main():
             elif action=='upgradedb':
                 # abort if there is already a running install in progress
                 if running_install:
-                    raise Exception('Running wapt-get in progress, please wait...')
+                    raise Exception('Running wapt processes (%s) in progress, please wait...' % (running_install,))
                 (old,new) = mywapt.waptdb.upgradedb(force=options.force)
                 if old == new:
                     print u"No database upgrade required, current %s, required %s" % (old,mywapt.waptdb.curr_db_version)
@@ -464,7 +465,7 @@ def main():
                     mywapt.update()
                 # abort if there is already a running install in progress
                 if running_install:
-                    raise Exception('Running wapt-get in progress, please wait...')
+                    raise Exception('Running wapt processes (%s) in progress, please wait...' % (running_install,))
                 result = mywapt.upgrade()
 
                 if options.json_output:
@@ -498,7 +499,7 @@ def main():
             elif action=='download-upgrade':
                 # abort if there is already a running install in progress
                 if running_install:
-                    raise Exception('Running wapt-get in progress, please wait...')
+                    raise Exception('Running wapt processes (%s) in progress, please wait...' % (running_install,))
                 if options.update_packages:
                     print u"Update packages list"
                     mywapt.update()
@@ -517,7 +518,18 @@ def main():
                 if len(args)<2:
                     print u"You must provide the directory"
                     sys.exit(1)
-                print update_packages(args[1])
+                result = update_packages(args[1])
+
+
+                if options.json_output:
+                    jsonresult['result'] = result
+                else:
+                    print u"Packages filename : %s" % result['packages_filename']
+                    print u"Processed packages :\n%s" % "\n".join([ "  %s" % p for p in result['processed'] ])
+                    print u"Skipped packages :\n%s" % "\n".join([ "  %s" % p for p in result['kept'] ])
+                    if result['errors']:
+                        logger.critical(u'Unable to process some files :\n%s' %  "\n".join([ "  %s" % p for p in result['kept'] ]))
+                        sys.exit(1)
 
             elif action=='sources':
                 if len(args)<2:
@@ -587,13 +599,13 @@ def main():
                             print u"Package edited. You can build the new WAPT package by launching\n  %s -i build-package %s" % (sys.argv[0],result['target'])
 
             elif action=='edit-host':
-                if len(args)<2:
-                    print u"You must provide the host fqdn package to edit"
-                    sys.exit(1)
-                if len(args)>=3:
-                    result = mywapt.edit_host(hostname = args[1],append_depends = args[2] )
+                if len(args)==1:
+                    print u"Using current host fqdn %s" % setuphelpers.get_hostname()
+                    result = mywapt.edit_host(hostname = setuphelpers.get_hostname(),use_local_sources=True)
+                elif len(args)>=3:
+                    result = mywapt.edit_host(hostname = args[1],append_depends = args[2],use_local_sources=True)
                 else:
-                    result = mywapt.edit_host(hostname = args[1] )
+                    result = mywapt.edit_host(hostname = args[1],use_local_sources=True)
                 if options.json_output:
                     jsonresult['result'] = result
                 else:

@@ -21,6 +21,7 @@ type
     ActEditSearch: TAction;
     ActEditRemove: TAction;
     ActEditSavePackage: TAction;
+    ActAdvancedMode: TAction;
     ActSearchPackage: TAction;
     ActionList1: TActionList;
     BitBtn2: TBitBtn;
@@ -29,21 +30,19 @@ type
     Button3: TButton;
     Button5: TButton;
     cbShowLog: TCheckBox;
-    Eddescription: TEdit;
-    EdPackage: TEdit;
+    Eddescription: TLabeledEdit;
+    EdPackage: TLabeledEdit;
     EdSearch: TEdit;
     EdSection: TComboBox;
     EdSourceDir: TEdit;
-    EdVersion: TEdit;
-    Label1: TLabel;
+    EdVersion: TLabeledEdit;
     Label2: TLabel;
-    Label3: TLabel;
     Label4: TLabel;
     Label5: TLabel;
-    ProgressBar: TProgressBar;
     GridDepends: TSOGrid;
     GridPackages: TSOGrid;
     MemoLog: TMemo;
+    MenuItem1: TMenuItem;
     MenuItem4: TMenuItem;
     PageControl1: TPageControl;
     Panel1: TPanel;
@@ -53,6 +52,7 @@ type
     Panel7: TPanel;
     Panel8: TPanel;
     Panel9: TPanel;
+    PopupMenu1: TPopupMenu;
     PopupMenuEditDepends: TPopupMenu;
     Splitter1: TSplitter;
     Splitter2: TSplitter;
@@ -62,6 +62,7 @@ type
     pgEditPackage: TTabSheet;
     EdSetupPy: TSynEdit;
     jsonlog: TVirtualJSONInspector;
+    procedure ActAdvancedModeExecute(Sender: TObject);
     procedure ActBuildUploadExecute(Sender: TObject);
     procedure ActEditRemoveExecute(Sender: TObject);
     procedure ActEditSavePackageExecute(Sender: TObject);
@@ -82,32 +83,33 @@ type
       Shift: TShiftState; State: TDragState; const Pt: TPoint;
       Mode: TDropMode; var Effect: DWORD; var Accept: boolean);
   private
+    FisAdvancedMode: boolean;
+    FisTempSourcesDir: boolean;
+    { private declarations }
+    FPackageRequest: string;
+    FSourcePath: string;
     FIsUpdated: boolean;
     GridDependsUpdated: boolean;
+    FDepends: string;
     function CheckUpdated: boolean;
+    procedure SetisAdvancedMode(AValue: boolean);
     procedure SetIsUpdated(AValue: boolean);
     function GetIsUpdated: boolean;
-  private
-    FDepends: string;
     function GetDepends: string;
     property IsUpdated: boolean read GetIsUpdated write SetIsUpdated;
     procedure SetDepends(AValue: string);
-  private
-    FPackageRequest: string;
-    FSourcePath: string;
-    { private declarations }
     procedure SetPackageRequest(AValue: string);
     procedure SetSourcePath(AValue: string);
     procedure TreeLoadData(tree: TVirtualJSONInspector; jsondata: string);
     property Depends: string read GetDepends write SetDepends;
-    function updateprogress(current, total: integer): boolean;
+    function updateprogress(receiver: TObject; current, total: integer): boolean;
   public
     { public declarations }
     waptpath: string;
     IsHost: boolean;
     IsNewPackage: boolean;
     PackageEdited: ISuperObject;
-    isAdvancedMode: boolean;
+    property isAdvancedMode: boolean read FisAdvancedMode write SetisAdvancedMode;
     procedure EditPackage;
     property SourcePath: string read FSourcePath write SetSourcePath;
     property PackageRequest: string read FPackageRequest write SetPackageRequest;
@@ -119,7 +121,6 @@ function EditHost(hostname: string; advancedMode: boolean): ISuperObject;
 
 
 var
-  downloadStopped: boolean;
   VisEditPackage: TVisEditPackage;
   privateKeyPassword: string = '';
   waptServerPassword: string = '';
@@ -168,8 +169,8 @@ function EditHost(hostname: string; advancedMode: boolean): ISuperObject;
 begin
   with TVisEditPackage.Create(nil) do
     try
-      isAdvancedMode := advancedMode;
       IsHost := True;
+      isAdvancedMode := advancedMode;
       PackageRequest := hostname;
       if ShowModal = mrOk then
         Result := PackageEdited
@@ -209,6 +210,8 @@ end;
 procedure TVisEditPackage.FormCloseQuery(Sender: TObject; var CanClose: boolean);
 begin
   CanClose := CheckUpdated;
+  if FisTempSourcesDir and DirectoryExists(FSourcePath) then
+    FileUtil.DeleteDirectory(FSourcePath, False);
 
 end;
 
@@ -229,6 +232,23 @@ begin
     if (Rep = idNo) then
       Result := True;
   end;
+end;
+
+procedure TVisEditPackage.SetisAdvancedMode(AValue: boolean);
+begin
+  if FisAdvancedMode = AValue then
+    Exit;
+  FisAdvancedMode := AValue;
+  // Advance mode in mainWindow -> tools => advance
+  PanelDevlop.Visible := isAdvancedMode;
+  Label5.Visible := isAdvancedMode;
+  EdSection.Visible := isAdvancedMode;
+  Label4.Visible := isAdvancedMode;
+  EdSourceDir.Visible := isAdvancedMode;
+  cbShowLog.Visible := isAdvancedMode;
+  pgDevelop.TabVisible := isAdvancedMode;
+  Eddescription.Visible := not IsHost or isAdvancedMode;
+
 end;
 
 procedure TVisEditPackage.EditPackage;
@@ -363,7 +383,7 @@ begin
   ActEditSavePackage.Execute;
   if not FileExists(GetWaptPrivateKey) then
   begin
-    ShowMessage('la clé privé n''existe pas: ' + GetWaptPrivateKey);
+    ShowMessage('La clé privé n''existe pas: ' + GetWaptPrivateKey);
     exit;
   end;
   isEncrypt := StrToBool(DMPython.RunJSON(
@@ -391,15 +411,26 @@ begin
   end;
   with  Tvisloading.Create(Self) do
     try
-      Chargement.Caption := 'Upload en cours';
+      ProgressTitle('Upload en cours');
       Application.ProcessMessages;
       Result := DMPython.RunJSON(format(
         'mywapt.build_upload(r"%s",r"%s",r"%s",r"%s",True)',
         [FSourcePath, privateKeyPassword, waptServerUser, waptServerPassword]), jsonlog);
-
+      if FisTempSourcesDir then
+      begin
+        FileUtil.DeleteDirectory(FSourcePath, False);
+        if Result.AsArray <> nil then
+          FileUtil.DeleteFileUTF8(Result.AsArray[0].S['filename']);
+      end;
     finally
+      Free;
     end;
   ModalResult := mrOk;
+end;
+
+procedure TVisEditPackage.ActAdvancedModeExecute(Sender: TObject);
+begin
+  isAdvancedMode := ActAdvancedMode.Checked;
 end;
 
 procedure TVisEditPackage.ActExecCodeExecute(Sender: TObject);
@@ -432,16 +463,7 @@ end;
 
 procedure TVisEditPackage.FormShow(Sender: TObject);
 begin
-  // Advance mode in mainWindow -> tools => advance
-  PanelDevlop.Visible := isAdvancedMode;
-  Label5.Visible := isAdvancedMode;
-  EdSection.Visible := isAdvancedMode;
-  Label4.Visible := isAdvancedMode;
-  EdSourceDir.Visible := isAdvancedMode;
-  cbShowLog.Visible := isAdvancedMode;
-  pgDevelop.TabVisible := isAdvancedMode;
   ActEditSearch.Execute;
-
 end;
 
 procedure TVisEditPackage.TreeLoadData(tree: TVirtualJSONInspector; jsondata: string);
@@ -463,12 +485,25 @@ begin
     end;
 end;
 
+function MkTempDir(prefix: string = ''): string;
+var
+  i: integer;
+begin
+  if prefix = '' then
+    prefix := 'wapt';
+  i := 0;
+  repeat
+    Inc(i);
+    Result := GetTempDir(False) + prefix + FormatFloat('0000', i);
+  until not DirectoryExists(Result);
+  MkDir(Result);
+end;
 
 procedure TVisEditPackage.SetPackageRequest(AValue: string);
 var
   res: ISuperObject;
   n: PVirtualNode;
-  filename, filePath: string;
+  filename, filePath, target_directory: string;
   grid: TSOGrid;
 begin
   if FPackageRequest = AValue then
@@ -479,14 +514,22 @@ begin
     if not IsNewPackage then
     begin
       if IsHost then
-        res := DMPython.RunJSON(format('mywapt.edit_host("%s")', [FPackageRequest]))
+      begin
+        target_directory := MkTempDir();
+        FisTempSourcesDir := True;
+        res := DMPython.RunJSON(format('mywapt.edit_host("%s",target_directory="%s")',
+          [FPackageRequest, target_directory]));
+        EdPackage.EditLabel.Caption := 'Machine';
+        Caption := 'Modifier la configuration de la machine';
+        pgEditPackage.Caption := 'Paquets devant être présents sur la machine';
+        EdVersion.Parent := Panel4;
+        EdVersion.Top := 5;
+      end
       else
       begin
         with  Tvisloading.Create(Self) do
           try
-            ProgressBar := ProgressBar1;
-            Chargement.Caption := 'Téléchargement en cours';
-            downloadStopped := False;
+            ProgressTitle('Téléchargement en cours');
             Application.ProcessMessages;
 
             grid := uwaptconsole.VisWaptGUI.GridPackages;
@@ -494,17 +537,20 @@ begin
             if n <> nil then
               try
                 filename := grid.GetCellStrValue(n, 'filename');
-                filePath := waptpath + '\cache\' + filename;
+                filePath := AppLocalDir + 'cache\' + filename;
+                if not DirectoryExists(AppLocalDir + 'cache') then
+                  mkdir(AppLocalDir + 'cache');
                 if not FileExists(filePath) then
-                  Wget(GetWaptRepoURL + '/' + filename, filePath, @updateprogress);
+                  Wget(GetWaptRepoURL + '/' + filename, filePath,
+                    ProgressForm, @updateprogress);
               except
                 ShowMessage('Téléchargement annulé');
+                if FileExists(filePath) then
+                  DeleteFile(filePath);
                 exit;
               end;
 
-
-            res := DMPython.RunJSON(format('mywapt.edit_package(r"%s")',
-              [filePath]));
+            res := DMPython.RunJSON(format('mywapt.edit_package(r"%s")', [filePath]));
           finally
             Free;
           end;
@@ -588,13 +634,17 @@ begin
   Result := FDepends;
 end;
 
-function TVisEditPackage.updateprogress(current, total: integer): boolean;
+function TVisEditPackage.updateprogress(receiver: TObject;
+  current, total: integer): boolean;
 begin
-
-  ProgressBar.Max := total;
-  ProgressBar.Position := current;
-  Application.ProcessMessages;
-  Result := not downloadStopped;
+  if receiver <> nil then
+    with (receiver as TVisLoading) do
+    begin
+      ProgressStep(current, total);
+      Result := not StopRequired;
+    end
+  else
+    Result := True;
 end;
 
 end.

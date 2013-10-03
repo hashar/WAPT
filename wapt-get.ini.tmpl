@@ -59,14 +59,23 @@ default_sources_suffix=wapt
 ;wapt_server=http://wapt.tranquil.it/waptserver
 
 ; for windows task scheduling
-waptupgrade_task_period=360
-waptupgrade_task_maxruntime=360
+;waptupgrade_task_period=360
+;waptupgrade_task_maxruntime=360
 
 waptupdate_task_period=30
 waptupdate_task_maxruntime=10
 
-; wapt tray poll wapt changes every 10s by default
-tray_check_interval=10
+; wapt tray poll wapt changes every 3s by default
+tray_check_interval=3
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; wapt_service configuration
+wapt_user=admin
+wapt_password=5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+waptservice_port=8088
+
+
+
 
 [private]
 repo_url=http://wapt/wapt

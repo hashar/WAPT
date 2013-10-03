@@ -1,12 +1,13 @@
 object VisWaptGUI: TVisWaptGUI
-  Left = 835
+  Left = 409
   Height = 695
-  Top = 168
+  Top = 146
   Width = 1074
   Caption = 'Console WAPT'
   ClientHeight = 676
   ClientWidth = 1074
   Menu = MainMenu1
+  OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
   Position = poScreenCenter
@@ -16,9 +17,9 @@ object VisWaptGUI: TVisWaptGUI
     Height = 553
     Top = 0
     Width = 1074
-    ActivePage = pgExternalRepo
+    ActivePage = pgInventory
     Align = alClient
-    TabIndex = 2
+    TabIndex = 0
     TabOrder = 0
     OnChange = PageControl1Change
     object pgInventory: TTabSheet
@@ -90,41 +91,41 @@ object VisWaptGUI: TVisWaptGUI
           TabOrder = 4
         end
         object cbSearchHost: TCheckBox
-          Left = 76
+          Left = 80
           Height = 17
           Top = 30
-          Width = 42
-          Caption = 'Host'
+          Width = 59
+          Caption = 'Machine'
           OnClick = CheckBoxMajClick
           State = cbGrayed
           TabOrder = 5
         end
         object cbSearchDMI: TCheckBox
-          Left = 124
+          Left = 144
           Height = 17
           Top = 30
-          Width = 37
-          Caption = 'Dmi'
+          Width = 65
+          Caption = 'Infos Dmi'
           OnClick = CheckBoxMajClick
           State = cbGrayed
           TabOrder = 6
         end
         object cbSearchSoftwares: TCheckBox
-          Left = 164
+          Left = 224
           Height = 17
           Top = 30
-          Width = 69
-          Caption = 'Softwares'
+          Width = 59
+          Caption = 'Logiciels'
           OnClick = CheckBoxMajClick
           State = cbGrayed
           TabOrder = 7
         end
         object cbSearchPackages: TCheckBox
-          Left = 236
+          Left = 300
           Height = 17
           Top = 30
-          Width = 65
-          Caption = 'Packages'
+          Width = 59
+          Caption = 'Paquets'
           OnClick = CheckBoxMajClick
           State = cbGrayed
           TabOrder = 8
@@ -142,11 +143,13 @@ object VisWaptGUI: TVisWaptGUI
         Header.Columns = <        
           item
             MaxWidth = 400
+            Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coFixed, coAllowFocus]
             Position = 0
             Text = 'Status'
           end        
           item
             MaxWidth = 400
+            Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coFixed, coAllowFocus]
             Position = 1
             Text = 'Machine'
             Width = 100
@@ -202,8 +205,14 @@ object VisWaptGUI: TVisWaptGUI
             PropertyName = 'host.connected_ips'
           end        
           item
-            MaxWidth = 400
             Position = 9
+            Text = 'Version WAPT'
+            Width = 20
+            PropertyName = 'wapt.wapt-exe-version'
+          end        
+          item
+            MaxWidth = 400
+            Position = 10
             Text = 'uuid'
             Width = 100
             PropertyName = 'uuid'
@@ -211,7 +220,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 10
+            Position = 11
             Text = 'md5sum'
             Width = 100
             PropertyName = 'md5sum'
@@ -219,7 +228,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 11
+            Position = 12
             Text = 'purchase_order'
             Width = 100
             PropertyName = 'purchase_order'
@@ -227,7 +236,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 12
+            Position = 13
             Text = 'purchase_date'
             Width = 100
             PropertyName = 'purchase_date'
@@ -235,7 +244,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 13
+            Position = 14
             Text = 'groups'
             Width = 100
             PropertyName = 'groups'
@@ -243,7 +252,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 14
+            Position = 15
             Text = 'attributes'
             Width = 100
             PropertyName = 'attributes'
@@ -251,24 +260,27 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 15
+            Position = 16
             Text = 'id'
             Width = 100
             PropertyName = 'id'
           end>
         Header.DefaultHeight = 17
         Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+        Header.SortColumn = 1
         Header.Style = hsFlatButtons
         Images = ImageList1
         PopupMenu = PopupMenuHosts
         TabOrder = 1
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toFullRowDrag, toEditOnClick]
+        TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toFullRowDrag]
         TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseExplorerTheme]
-        TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect, toSimpleDrawSelection]
+        TreeOptions.SelectionOptions = [toExtendedFocus, toMultiSelect, toRightClickSelect, toSimpleDrawSelection]
         WantTabs = True
-        OnDblClick = ActEditHostPackageExecute
+        OnColumnDblClick = GridHostsColumnDblClick
         OnFocusChanged = GridHostsFocusChanged
         OnGetImageIndexEx = GridHostsGetImageIndexEx
+        OnHeaderDblClick = GridHostsHeaderDblClick
       end
       object HostPages: TPageControl
         Left = 494
@@ -635,12 +647,12 @@ object VisWaptGUI: TVisWaptGUI
     object pgPrivateRepo: TTabSheet
       Caption = 'Dépôt privé'
       ClientHeight = 527
-      ClientWidth = 1088
+      ClientWidth = 1066
       object GridPackages: TSOGrid
         Left = 0
         Height = 477
         Top = 30
-        Width = 1088
+        Width = 1066
         Align = alClient
         Color = clWhite
         Header.AutoSizeIndex = 0
@@ -695,26 +707,26 @@ object VisWaptGUI: TVisWaptGUI
           end>
         Header.DefaultHeight = 17
         Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]
-        Header.SortColumn = 0
+        Header.SortColumn = 1
         Header.Style = hsFlatButtons
         PopupMenu = PopupMenuPackages
         TabOrder = 1
         TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize]
         TreeOptions.PaintOptions = [toHideFocusRect, toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toMultiSelect, toRightClickSelect]
-        OnDblClick = ActPackageEdit
+        OnColumnDblClick = GridPackagesColumnDblClick
         OnPaintText = GridPackagesPaintText
       end
       object Panel5: TPanel
         Left = 0
         Height = 20
         Top = 507
-        Width = 1088
+        Width = 1066
         Align = alBottom
         BevelOuter = bvNone
         ClientHeight = 20
-        ClientWidth = 1088
+        ClientWidth = 1066
         TabOrder = 2
         object LabHostCnt: TLabel
           Left = 4
@@ -729,11 +741,11 @@ object VisWaptGUI: TVisWaptGUI
         Left = 0
         Height = 30
         Top = 0
-        Width = 1088
+        Width = 1066
         Align = alTop
         BevelOuter = bvNone
         ClientHeight = 30
-        ClientWidth = 1088
+        ClientWidth = 1066
         TabOrder = 0
         object EdSearch: TEdit
           Left = 4
@@ -840,7 +852,7 @@ object VisWaptGUI: TVisWaptGUI
           end>
         Header.DefaultHeight = 17
         Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoHeightResize]
-        Header.SortColumn = 0
+        Header.SortColumn = 1
         Header.Style = hsFlatButtons
         PopupMenu = PopupMenuPackagesTIS
         TabOrder = 0
@@ -934,14 +946,14 @@ object VisWaptGUI: TVisWaptGUI
     end
     object TabSheet1: TTabSheet
       Caption = 'Sources'
-      ClientHeight = 524
-      ClientWidth = 1088
+      ClientHeight = 527
+      ClientWidth = 1066
       TabVisible = False
       inline testedit: TSynEdit
         Left = 0
-        Height = 490
+        Height = 493
         Top = 34
-        Width = 1088
+        Width = 1066
         Align = alClient
         Font.Height = -13
         Font.Name = 'Courier New'
@@ -1458,11 +1470,11 @@ object VisWaptGUI: TVisWaptGUI
         Left = 0
         Height = 34
         Top = 0
-        Width = 1088
+        Width = 1066
         Align = alTop
         BevelOuter = bvNone
         ClientHeight = 34
-        ClientWidth = 1088
+        ClientWidth = 1066
         TabOrder = 1
         object butInitWapt: TButton
           Left = 4
@@ -1474,7 +1486,7 @@ object VisWaptGUI: TVisWaptGUI
         end
         object EdRun: TEdit
           Left = 292
-          Height = 23
+          Height = 21
           Top = 5
           Width = 168
           OnKeyPress = EdRunKeyPress
@@ -1508,15 +1520,16 @@ object VisWaptGUI: TVisWaptGUI
       Top = 1
       Width = 1072
       Align = alClient
+      BevelOuter = bvNone
       Caption = 'Panel7'
       ClientHeight = 116
       ClientWidth = 1072
       TabOrder = 1
       object MemoLog: TMemo
-        Left = 1
-        Height = 114
-        Top = 1
-        Width = 459
+        Left = 0
+        Height = 116
+        Top = 0
+        Width = 461
         Align = alClient
         Lines.Strings = (
           ''
@@ -1524,9 +1537,9 @@ object VisWaptGUI: TVisWaptGUI
         TabOrder = 0
       end
       object jsonlog: TVirtualJSONInspector
-        Left = 465
-        Height = 114
-        Top = 1
+        Left = 466
+        Height = 116
+        Top = 0
         Width = 606
         PropertyDefs = <>
         Align = alRight
@@ -1552,9 +1565,9 @@ object VisWaptGUI: TVisWaptGUI
         TreeOptions.SelectionOptions = [toExtendedFocus]
       end
       object Splitter2: TSplitter
-        Left = 460
-        Height = 114
-        Top = 1
+        Left = 461
+        Height = 116
+        Top = 0
         Width = 5
         Align = alRight
         ResizeAnchor = akRight
@@ -1686,13 +1699,13 @@ object VisWaptGUI: TVisWaptGUI
       ShortCut = 46
     end
     object ActDeletePackage: TAction
-      Caption = 'Supprimer'
+      Caption = 'Supprimer du dépôt'
       OnExecute = ActDeletePackageExecute
       OnUpdate = ActDeletePackageUpdate
       ShortCut = 46
     end
     object ActAdvancedMode: TAction
-      Caption = 'ActAdvancedMode'
+      Caption = 'Mode avancé'
       OnExecute = ActAdvancedModeExecute
     end
     object ActPackageDuplicate: TAction
@@ -1700,7 +1713,7 @@ object VisWaptGUI: TVisWaptGUI
       OnExecute = ActPackageDuplicateExecute
     end
     object ActPackageGroupAdd: TAction
-      Caption = 'Nouveau paquet groupe'
+      Caption = 'Nouveau groupe'
       OnExecute = ActPackageGroupAddExecute
     end
     object ActChangePassword: TAction
@@ -1735,11 +1748,13 @@ object VisWaptGUI: TVisWaptGUI
       Category = 'hosts'
       Caption = 'Mettre à jour WAPT'
       OnExecute = ActHostWaptUpgradeExecute
+      OnUpdate = ActHostWaptUpgradeUpdate
     end
     object ActHostUpgrade: TAction
       Category = 'hosts'
       Caption = 'Appliquer les mises à jour'
       OnExecute = ActHostUpgradeExecute
+      OnUpdate = ActHostUpgradeUpdate
     end
   end
   object PopupMenuPackages: TPopupMenu
@@ -1767,10 +1782,6 @@ object VisWaptGUI: TVisWaptGUI
     object MenuItem4: TMenuItem
       Caption = 'Enlever'
     end
-  end
-  object UniqueInstance1: TUniqueInstance
-    left = 444
-    top = 172
   end
   object MainMenu1: TMainMenu
     left = 440
@@ -1832,7 +1843,6 @@ object VisWaptGUI: TVisWaptGUI
       end
       object MenuItem23: TMenuItem
         Action = ActAdvancedMode
-        Caption = 'Mode Avancé'
       end
       object MenuItem32: TMenuItem
         Caption = '-'

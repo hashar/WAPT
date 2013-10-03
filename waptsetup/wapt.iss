@@ -3,14 +3,12 @@
 #define FileVerStr GetFileVersion(SrcApp)
 #define StripBuild(str VerStr) Copy(VerStr, 1, RPos(".", VerStr)-1)
 #define AppVerStr StripBuild(FileVerStr)
-
-#define default_repo_url "http://srvlts1/wapt"
-
-#define default_wapt_server "http://srvlts1:8080"
+#define default_repo_url "http://wapt.tranquil.it"
+#define default_wapt_server "http://wapt:8080"
 #define default_update_period "120"
 #define default_update_maxruntime "30"
 
-#define output_dir "C:\tranquilit\wapt\waptserver\repository\wapt"
+#define output_dir "."
 
 ;#define waptserver 
 #ifdef waptserver
@@ -24,9 +22,8 @@
 Source: "..\DLLs\*"; DestDir: "{app}\DLLs"; Flags: createallsubdirs recursesubdirs
 Source: "..\lib\*"; DestDir: "{app}\lib"; Flags: createallsubdirs recursesubdirs ; Excludes: "*.pyc,test,*.~*" 
 Source: "..\libs\*"; DestDir: "{app}\libs"; Flags: createallsubdirs recursesubdirs  ; Excludes: "*.pyc,test,*.~*" 
-Source: "..\static\*"; DestDir: "{app}\static"; Flags: createallsubdirs recursesubdirs
-Source: "..\templates\*"; DestDir: "{app}\templates"; Flags: createallsubdirs recursesubdirs
 Source: "..\ssl\*"; DestDir: "{app}\ssl"; Flags: createallsubdirs recursesubdirs
+Source: "..\templates\*"; DestDir: "{app}\templates"; Flags: createallsubdirs recursesubdirs
 Source: "..\common.py"; DestDir: "{app}"; 
 Source: "..\waptpackage.py"; DestDir: "{app}"; 
 Source: "..\setuphelpers.py"; DestDir: "{app}"; 
@@ -58,11 +55,12 @@ Source: "..\vc_redist\*"; DestDir: "{app}\vc_redist";
 Source: "..\lib\site-packages\M2Crypto\libeay32.dll" ; DestDir: "{app}"; 
 Source: "..\lib\site-packages\M2Crypto\ssleay32.dll" ; DestDir: "{app}";
 
-
 Source: "..\waptpython.exe"; DestDir: "{app}";
-Source: "..\waptservice*.py"; DestDir: "{app}";
-;Source: "..\waptservice.ini"; DestDir: "{app}";
-Source: "..\waptservice.exe"; DestDir: "{app}";  BeforeInstall: BeforeWaptServiceInstall('waptservice.exe'); AfterInstall: AfterWaptServiceInstall('waptservice.exe'); Tasks: installService
+Source: "..\waptservice\static\*"; DestDir: "{app}\waptservice\static"; Flags: createallsubdirs recursesubdirs
+Source: "..\waptservice\ssl\*"; DestDir: "{app}\waptservice\ssl"; Flags: createallsubdirs recursesubdirs
+Source: "..\waptservice\templates\*"; DestDir: "{app}\waptservice\templates"; Flags: createallsubdirs recursesubdirs
+Source: "..\waptservice\waptservice*.py"; DestDir: "{app}\waptservice\";  BeforeInstall: BeforeWaptServiceInstall('waptservice.py'); AfterInstall: AfterWaptServiceInstall('waptservice.py'); Tasks: installService
+Source: "..\python27.dll"; DestDir: "{sys}"; Flags: sharedfile 32bit;
 
 #ifdef waptserver
 Source: "waptserver.iss"; DestDir: "{app}\waptsetup";
@@ -72,9 +70,8 @@ Source: "..\waptserver\*.template"; DestDir: "{app}\waptserver";
 Source: "..\waptserver\templates\*"; DestDir: "{app}\waptserver\templates"; Flags: createallsubdirs recursesubdirs
 Source: "..\waptserver\scripts\*"; DestDir: "{app}\waptserver\scripts"; Flags: createallsubdirs recursesubdirs
 Source: "..\waptserver\mongodb\mongod.*"; DestDir: "{app}\waptserver\mongodb"; Flags: createallsubdirs recursesubdirs
-; Source: "..\python27.dll"; DestDir: "{sys}"; Flags: sharedfile 32bit;
 #endif
-Source: "..\python27.dll"; DestDir: "{sys}"; Flags: sharedfile 32bit;
+
 
 [Dirs]
 #ifdef waptserver
@@ -133,13 +130,13 @@ Filename: {app}\wapt-get.ini; Section: global; Key: repo_url; String: {code:GetR
 Filename: {app}\wapt-get.ini; Section: global; Key: waptupdate_task_period; String: {#default_update_period}; Flags:  createkeyifdoesntexist 
 Filename: {app}\wapt-get.ini; Section: global; Key: waptupdate_task_maxruntime; String: {#default_update_maxruntime}; Flags: createkeyifdoesntexist
 Filename: {app}\wapt-get.ini; Section: global; Key: wapt_server; String: {code:GetWaptServerURL}; Tasks: useWaptServer; Flags: createkeyifdoesntexist
-Filename: {app}\wapt-get.ini; Section: tranquilit; Key: repo_url; String: http://wapt.tranquil.it/wapt; Tasks: usetispublic; Flags: createkeyifdoesntexist
-Filename: {app}\wapt-get.ini; Section: global; Key: repositories; String: tranquilit; Flags: createkeyifdoesntexist; Tasks: useTISPublic
+;Filename: {app}\wapt-get.ini; Section: tranquilit; Key: repo_url; String: http://wapt.tranquil.it/wapt; Tasks: usetispublic; Flags: createkeyifdoesntexist
+;Filename: {app}\wapt-get.ini; Section: global; Key: repositories; String: tranquilit; Flags: createkeyifdoesntexist; Tasks: useTISPublic
 
 [Run]
 Filename: "{app}\vc_redist\vcredist_x86.exe"; Parameters: "/q"; WorkingDir: "{tmp}"; StatusMsg: "Updating MS VC++ libraries for OpenSSL..."; Description: "Update MS VC++ libraries"
 Filename: "{app}\wapt-get.exe"; Parameters: "upgradedb"; Flags: runhidden; StatusMsg: "Upgrading local sqlite database structure"; Description: "Upgrade packages list"
-Filename: "{app}\wapt-get.exe"; Parameters: "update"; Tasks: updateWapt; Flags: runhidden; StatusMsg: "Updating packages list"; Description: "Update packages list from main repository"
+Filename: "{app}\wapt-get.exe"; Parameters: "update"; Flags: runhidden; StatusMsg: "Updating packages list"; Description: "Update packages list from main repository"
 Filename: "{app}\wapt-get.exe"; Parameters: "setup-tasks"; Tasks: setuptasks; Flags: runhidden; StatusMsg: "Setting up daily sheduled tasks"; Description: "Set up daily sheduled tasks"
 ; rights rw for Admins and System, ro for users and authenticated users
 Filename: "cmd"; Parameters: "/C echo O| cacls {app} /S:""D:PAI(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1200a9;;;BU)(A;OICI;0x1201a9;;;AU)"""; Flags: runhidden; WorkingDir: "{tmp}"; StatusMsg: "Changing rights on wapt directory..."; Description: "Changing rights on wapt directory"
@@ -159,18 +156,17 @@ Name: "{commonstartup}\WAPT tray helper"; Tasks: autorunTray; Filename: "{app}\w
 Name: "{commonstartup}\WAPT session setup"; Tasks: autorunSessionSetup; Filename: "{app}\wapt-get.exe"; Parameters: "session-setup ALL"; Flags: runminimized excludefromshowinnewinstall;
 
 [Tasks]
-Name: updateWapt; Description: "Update package list after setup";
+;Name: updateWapt; Description: "Update package list after setup";
 Name: installService; Description: "Install WAPT Service"; 
-Name: autorunTray; Description: "Start WAPT Tray icon at logon"; Flags: unchecked
-Name: autorunSessionSetup; Description: "Launch WAPT session setup for all packages at logon";
 Name: setupTasks; Description: "Creates windows scheduled tasks for update and upgrade"; 
-Name: useTISPublic; Description: "Use Tranquil IT public repository as a secondary source"; Flags: unchecked
-
+Name: autorunTray; Description: "Start WAPT Tray icon at logon"; Flags: unchecked
+;Name: useTISPublic; Description: "Use Tranquil IT public repository as a secondary source"; Flags: unchecked
 #ifdef waptserver
 Name: useWaptServer; Description: "Manage this machine from a central WAPT manage server";
 #else
 Name: useWaptServer; Description: "Manage this machine from a central WAPT manage server";  Flags: unchecked
 #endif
+Name: autorunSessionSetup; Description: "Launch WAPT session setup for all packages at logon";
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/t /im ""waptconsole.exe"" /f"; Flags: runhidden; StatusMsg: "Stopping waptconsole"
@@ -186,61 +182,51 @@ Filename: "{app}\waptserver\mongodb\mongod.exe"; Parameters: " --config c:\wapt\
 
 [Code]
 #include "services.iss"
-
 var
-  rbCustomRepo: TNewRadioButton;
-  rbDnsRepo: TNewRadioButton;
+  rbCustomUrl,rbDnsServer: TNewRadioButton;
   teWaptUrl,teWaptServerUrl: TEdit;
-  lb1:TLabel;
   CustomPage: TWizardPage;
-  
-  
+
   
 procedure InitializeWizard;
 begin
   CustomPage := CreateCustomPage(wpSelectTasks, 'Installation options', '');
   
-  rbCustomRepo := TNewRadioButton.Create(WizardForm);
-  rbCustomRepo.Parent := CustomPage.Surface;
-  rbCustomRepo.Checked := True;
-  rbCustomRepo.Caption := 'WAPT repository';
+  rbDnsServer := TNewRadioButton.Create(WizardForm);
+  rbDnsServer.Parent := CustomPage.Surface;
+  rbDnsServer.Checked := True;
+  rbDnsServer.Width := CustomPage.SurfaceWidth;
+  rbDnsServer.Caption := 'Detect WAPT Server with DNS records';
 
-  teWaptUrl :=TEdit.Create(WizardForm);
-  teWaptUrl.Parent := CustomPage.Surface; 
-  teWaptUrl.Left :=rbCustomRepo.Left + rbCustomRepo.Width;
-  teWaptUrl.Width :=CustomPage.SurfaceWidth - rbCustomRepo.Width;
-   
-  rbDnsRepo := TNewRadioButton.Create(WizardForm);
-  rbDnsRepo.Parent := CustomPage.Surface;
-  rbDnsRepo.Top := rbCustomRepo.Top + rbCustomRepo.Height + ScaleY(15);
-  rbDnsRepo.Width := CustomPage.SurfaceWidth;
-  rbDnsRepo.Caption := 'Detect WAPT repository with DNS records';
+  rbCustomUrl := TNewRadioButton.Create(WizardForm);
+  rbCustomUrl.Parent := CustomPage.Surface; 
+  rbCustomUrl.Checked := False;
+  rbCustomUrl.Caption := 'WAPT Server';
+  rbCustomUrl.Top := rbCustomUrl.Top + rbDnsServer.Height + 3 * ScaleY(15);
 
-  lb1 := TLabel.Create(WizardForm);
-  lb1.Caption := 'Waptserver URL';
-  lb1.Parent := CustomPage.Surface; 
-  lb1.Top := rbCustomRepo.Top + rbCustomRepo.Height + 3 * ScaleY(15);
-  lb1.Left :=rbCustomRepo.Left;
-
-  teWaptServerUrl :=TEdit.Create(WizardForm);
+  teWaptServerUrl := TEdit.Create(WizardForm);;
   teWaptServerUrl.Parent := CustomPage.Surface; 
-  teWaptServerUrl.Top := lb1.Top - 4;
-  teWaptServerUrl.Left :=rbCustomRepo.Left + lb1.Width+5;
-  teWaptServerUrl.Width :=CustomPage.SurfaceWidth;
-  
+  teWaptServerUrl.Left :=rbCustomUrl.Left + rbCustomUrl.Width+5;
+  teWaptServerUrl.Width :=CustomPage.SurfaceWidth - rbCustomUrl.Width;
+  teWaptServerUrl.Top := teWaptServerUrl.Top + rbDnsServer.Height + 3 * ScaleY(15);
     
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
+var
+  WaptRepo: String;
 begin
   if curPageId=customPage.Id then
   begin
-    teWaptUrl.Text := GetIniString('Global', 'repo_url', '{#default_repo_url}', ExpandConstant('{app}\wapt-get.ini'));
-    teWaptServerUrl.Text := GetIniString('Global', 'wapt_server', '{#default_wapt_server}', ExpandConstant('{app}\wapt-get.ini'));
-    rbCustomRepo.Checked := teWaptUrl.Text <> ''; 
-    rbDnsRepo.Checked := teWaptUrl.Text = ''; 
-    lb1.Visible := isTaskSelected('useWaptServer');
-    tewaptServerUrl.Visible := isTaskSelected('useWaptServer');
+    WaptRepo := GetIniString('Global', 'repo_url', '{#default_wapt_server}', ExpandConstant('{app}\wapt-get.ini'));
+    if isTaskSelected('useWaptServer') then
+      teWaptServerUrl.Text := GetIniString('Global', 'wapt_server', '{#default_wapt_server}', ExpandConstant('{app}\wapt-get.ini'))
+    else
+      teWaptServerUrl.Text := GetIniString('Global', 'wapt_server', '{#default_repo_url}', ExpandConstant('{app}\wapt-get.ini'));
+    rbCustomUrl.Checked := WaptRepo <> '';
+    rbDnsServer.Visible := isTaskSelected('useWaptServer');
+
+
   end
 end;
 
@@ -249,8 +235,8 @@ begin
   if WizardSilent then
     result := GetIniString('Global', 'repo_url', '',ExpandConstant('{app}\wapt-get.ini'))
   else
-    if rbCustomRepo.Checked then
-       result := teWaptUrl.Text
+    if rbCustomUrl.Checked then
+       result := teWaptServerUrl.Text + '/wapt'
     else 
        result :='';
 end;
@@ -264,7 +250,7 @@ begin
 end;
 
 
-function InitializeSetup():boolean;
+function InitializeSetup(): Boolean;
 var
   ResultCode: integer;
 begin
@@ -341,23 +327,24 @@ begin
      ewWaitUntilTerminated, ErrorCode) then
     RaiseException('Error installing waptservice: '+intToStr(ErrorCode));
    
-  GetWindowsVersionEx(winver);
-  if winver.Major>=6 then 
+ // GetWindowsVersionEx(winver);
+ // if winver.Major>=6 then 
   // for win7
-  begin  
-    ExecStdOut := RunCmd('netsh advfirewall firewall show rule name="waptservice 8088"',False);
-    if pos('Ok.',ExecStdOut)<=0 then
-      if pos('Ok.',RunCmd('netsh advfirewall firewall add rule name="waptservice 8088" dir=in action=allow protocol=TCP localport=8088',True))<=0 then 
-        RaiseException('could not open firewall port 8088 for remote management');
-  end
-  else
-  begin
-    ExecStdOut := RunCmd('netsh.exe firewall show portopening',True);
-    if pos('waptservice 8088',ExecStdOut)<=0 then
-      if pos('Ok.',RunCmd('netsh.exe firewall add portopening name="waptservice 8088" port 8088 protocol=TCP',True))<=0 then
-        RaiseException('could not open firewall port 8088 for remote management')
-	end;
+ // begin  
+ //   ExecStdOut := RunCmd('netsh advfirewall firewall show rule name="waptservice 8088"',False);
+ //   if pos('Ok.',ExecStdOut)<=0 then
+  //    if pos('Ok.',RunCmd('netsh advfirewall firewall add rule name="waptservice 8088" dir=in action=allow protocol=TCP localport=8088',True))<=0 then 
+ //       RaiseException('could not open firewall port 8088 for remote management');
+//  end
+//  else
+//  begin
+//    ExecStdOut := RunCmd('netsh.exe firewall show portopening',True);
+//    if pos('waptservice 8088',ExecStdOut)<=0 then
+//      if pos('Ok.',RunCmd('netsh.exe firewall add portopening name="waptservice 8088" port=8088 protocol=TCP',True))<=0 then
+//        RaiseException('could not open firewall port 8088 for remote management')
+//	end;
 end;
+
 
 procedure BeforeWaptServiceinstall(exe:String);
 begin
@@ -402,3 +389,4 @@ begin
   Result := Pos(';' + UpperCase(ExpandConstant(Param)) + ';', UpperCase(OrigPath)) = 0;
   
 end;
+

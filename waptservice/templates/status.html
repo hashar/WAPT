@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1>Installed packages</h1>'
+<table border=1 cellspacing=0 cellpadding=4 class=sample>
+{% set cols = [('install_status','Status'),('package','Package'),('version','Version'),('install_par','Installed by'),('install_date','Installed on')] %}
+	<tr>
+		{% for c in cols %}
+			<th>
+			{{c[1]}}
+			</th>
+		{% endfor %}
+	</tr>
+	{% for p in packages %}
+		<tr>
+		{% for c in cols %}
+		<td>
+		{% if c[0]=='install_date' %}
+			{{p[c[0]][0:16].replace('T',' ')}}
+		{%else%}
+			{{p[c[0]]}}
+		{%endif%}
+		</td>
+	{% endfor %}
+	</tr>
+{% endfor %}
+</table>
+{% endblock %}

@@ -20,51 +20,49 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
+import os,sys
+wapt_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'..'))
+sys.path.append(os.path.join(wapt_root_dir))
+sys.path.append(os.path.join(wapt_root_dir,'lib'))
+sys.path.append(os.path.join(wapt_root_dir,'waptservice'))
+sys.path.append(os.path.join(wapt_root_dir,'waptserver'))
+sys.path.append(os.path.join(wapt_root_dir,'lib','site-packages'))
+sys.path.append(os.path.join(wapt_root_dir,'waptrepo'))
+
 
 from flask import request, Flask,Response, send_from_directory, session, g, redirect, url_for, abort, render_template, flash
-
 import time
-import sys
 import json
 import hashlib
 import pymongo
-import os
 from pymongo import MongoClient
 from werkzeug import secure_filename
-from waptpackage import update_packages,PackageEntry
 from functools import wraps
 import logging
 import ConfigParser
-import  cheroot.wsgi, cheroot.ssllib.ssl_builtin
 import logging
 import codecs
 import zipfile
 import pprint
 import socket
 import requests
+import pefile
+from rocket import Rocket
 
-__version__ = "0.7.4"
+
+from waptpackage import update_packages,PackageEntry
+
+__version__="0.8.1"
 
 config = ConfigParser.RawConfigParser()
-wapt_root_dir = ''
 
-if os.name=='nt':
-    import _winreg
-    try:
-        key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,"SOFTWARE\\TranquilIT\\WAPT")
-        (wapt_root_dir,atype) = _winreg.QueryValueEx(key,'install_dir')
-    except:
-        wapt_root_dir = 'c:\\\\wapt\\'
-else:
-    wapt_root_dir = '/opt/wapt/'
-
-import logging
+# log
 log_directory = os.path.join(wapt_root_dir,'log')
 if not os.path.exists(log_directory):
     os.mkdir(log_directory)
 
-logging.basicConfig(filename=os.path.join(log_directory,'waptserver.log'),format='%(asctime)s %(message)s')
-logging.info('waptserver starting')
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 config_file = os.path.join(wapt_root_dir,'waptserver','waptserver.ini')
 
@@ -73,9 +71,14 @@ if os.path.exists(config_file):
 else:
     raise Exception("FATAL. Couldn't open config file : " + config_file)
 
-sys.path.append(os.path.join(wapt_root_dir,'lib'))
-sys.path.append(os.path.join(wapt_root_dir,'waptserver'))
-sys.path.append(os.path.join(wapt_root_dir,'lib','site-packages'))
+def setloglevel(logger,loglevel):
+    """set loglevel as string"""
+    if loglevel in ('debug','warning','info','error','critical'):
+        numeric_level = getattr(logging, loglevel.upper(), None)
+        if not isinstance(numeric_level, int):
+            raise ValueError('Invalid log level: %s' % loglevel)
+        logger.setLevel(numeric_level)
+
 
 #default mongodb configuration for wapt
 mongodb_port = "38999"
@@ -85,6 +88,7 @@ wapt_folder = ""
 wapt_user = ""
 wapt_password = ""
 
+waptserver_port = 8080
 waptservice_port = 8088
 
 if config.has_section('options'):
@@ -92,6 +96,9 @@ if config.has_section('options'):
         wapt_user = config.get('options', 'wapt_user')
     else:
         wapt_user='admin'
+
+    if config.has_option('options', 'waptserver_port'):
+        waptserver_port = config.get('options', 'waptserver_port')
 
     if config.has_option('options', 'wapt_password'):
         wapt_password = config.get('options', 'wapt_password')
@@ -113,6 +120,8 @@ else:
 
 if not wapt_folder:
     wapt_folder = os.path.join(wapt_root_dir,'waptserver','repository','wapt')
+
+waptsetup = os.path.join(wapt_folder, 'waptsetup.exe')
 
 if os.path.exists(wapt_folder)==False:
     try:
@@ -149,7 +158,7 @@ ALLOWED_EXTENSIONS = set(['wapt'])
 
 
 app = Flask(__name__,static_folder='./templates/static')
-app.config['PROPAGATE_EXCEPTIONS'] = True
+#app.config['PROPAGATE_EXCEPTIONS'] = True
 
 def get_host_data(uuid, filter = {}, delete_id = True):
     if filter:
@@ -163,6 +172,19 @@ def get_host_data(uuid, filter = {}, delete_id = True):
 @app.route('/')
 def index():
     return render_template("index.html")
+
+@app.route('/info')
+def informations():
+    informations = {}
+    informations["server_version"] = __version__ 
+    if os.path.exists(waptsetup):
+        pe = pefile.PE(waptsetup)
+        informations["client_version"] =  pe.FileInfo[0].StringTable[0].entries['ProductVersion'].strip()  
+    
+    return  Response(response=json.dumps(informations),
+                    status=200,
+                    mimetype="application/json")    
+    
 
 @app.route('/wapt/')
 def wapt_listing():
@@ -279,6 +301,7 @@ def packagesFileToList(pathTofile):
         add_package(lines)
         lines = []
 
+    packages.sort()
     return packages
 
 @app.route('/client_package_list/<string:uuid>')
@@ -287,10 +310,12 @@ def get_client_package_list(uuid=""):
     repo_packages = packagesFileToList(os.path.join(wapt_folder, 'Packages'))
     for p in packages['packages']:
         package = PackageEntry()
-        package.load_control_from_dict(p)        
-        if [ x for x in repo_packages if package.package == x.package and package < x ]:
-            p['install_status'] = 'NEED-UPGRADE'
-            
+        package.load_control_from_dict(p)
+        matching = [ x for x in repo_packages if package.package == x.package ]
+        if matching:
+            if package < matching[-1]:
+                p['install_status'] = 'NEED-UPGRADE'
+
     return  Response(response=json.dumps(packages['packages']),
                     status=200,
                     mimetype="application/json")
@@ -302,14 +327,14 @@ def requires_auth(f):
         auth = request.authorization
 
         if not auth:
-            logging.info('no credential given')
+            logger.info('no credential given')
             return authenticate()
 
         logging.info("authenticating : %s" % auth.username)
 
         if not check_auth(auth.username, auth.password):
             return authenticate()
-        logging.info("user %s authenticated" % auth.username)
+        logger.info("user %s authenticated" % auth.username)
         return f(*args, **kwargs)
     return decorated
 
@@ -318,16 +343,16 @@ def requires_auth(f):
 def upload_package(filename=""):
     try:
         if request.method == 'POST':
-            if filename and allowed_file(filename): 
+            if filename and allowed_file(filename):
                 filename = os.path.join(wapt_folder, secure_filename(filename))
-                with open(filename, 'w') as f:
-                    f.write(request.stream.read())      
-                
+                with open(filename, 'wb') as f:
+                    f.write(request.stream.read())
+
                 if not os.path.isfile(filename):
                     "Error during uploading"
                 if PackageEntry().load_control_from_wapt(filename):
                     update_packages(wapt_folder)
-                    return "ok"            
+                    return "ok"
                 else:
                     "Is not a valid wapt file"
             else:
@@ -337,16 +362,16 @@ def upload_package(filename=""):
     except:
         e = sys.exc_info()
         return str(e)
-    
+
     return "ok"
-        
+
 @app.route('/upload_host',methods=['POST'])
 @requires_auth
 def upload_host():
-    logging.debug("Entering upload_host")
+    logger.debug("Entering upload_host")
     try:
         file = request.files['file']
-        logging.info('uploading host file : %s' % file)
+        logger.info('uploading host file : %s' % file)
 
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
@@ -360,6 +385,23 @@ def upload_host():
         e = sys.exc_info()
         return str(e)
 
+@app.route('/upload_waptsetup',methods=['POST'])
+@requires_auth
+def upload_waptsetup():
+    logger.debug("Entering upload_waptsetup")
+    try:
+        file = request.files['file']
+        logger.info('uploading waptsetup file : %s' % file)
+        if file and "waptsetup.exe" in file.filename :
+            filename = secure_filename(file.filename)
+            file.save(waptsetup)
+            return "ok"
+        else:
+            return "wrong file type"
+
+    except:
+        e = sys.exc_info()
+        return str(e)
 
 
 @app.route('/waptupgrade_host/<string:ip>')
@@ -370,35 +412,35 @@ def waptupgrade_host(ip):
         s.connect((ip,waptservice_port))
         s.close
         if ip and waptservice_port:
-            print "Upgrading %s..." % ip
-            r = requests.get("http://%s:%d/waptupgrade" % ( ip, waptservice_port))
+            logger.info( "Upgrading %s..." % ip)
+            r = requests.get("http://%s:%d/waptupgrade" % ( ip, waptservice_port),proxies=None)
             return r.text
-        
+
         else:
-            return "Le port de waptservice n'est pas défini"                
-     
+            return "Le port de waptservice n'est pas défini"
+
     except Exception as e:
         return "Impossible de joindre le web service: %s" % e
 
 @app.route('/upgrade_host/<string:ip>')
-def waptupgrade_host(ip):
+def upgrade_host(ip):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(1)
         s.connect((ip,waptservice_port))
         s.close
         if ip and waptservice_port:
-            print "Upgrading %s..." % ip
-            r = requests.get("http://%s:%d/upgrade" % ( ip, waptservice_port))
+            logger.info("Upgrading %s..." % ip)
+            r = requests.get("http://%s:%d/upgrade" % ( ip, waptservice_port),proxies=None)
             return r.text
-        
+
         else:
-            return "Le port de waptservice n'est pas défini"                
-     
+            return "Le port de waptservice n'est pas défini"
+
     except Exception as e:
         return "Impossible de joindre le web service: %s" % e
 
-@app.route('/login',methods=['POST'])    
+@app.route('/login',methods=['POST'])
 def login():
     try:
         if request.method == 'POST':
@@ -438,15 +480,15 @@ def delete_package(filename=""):
 
 @app.route('/wapt/<string:input_package_name>')
 def get_wapt_package(input_package_name):
-    logging.info( "get wapt package : "+ input_package_name)
+    logger.info( "get wapt package : "+ input_package_name)
     global wapt_folder
     package_name = secure_filename(input_package_name)
     r =  send_from_directory(wapt_folder, package_name)
-    logging.info("checking if content-length is there or not")
+    logger.info("checking if content-length is there or not")
     if 'content-length' not in r.headers:
         r.headers.add_header('content-length', int(os.path.getsize(os.path.join(wapt_folder,package_name))))
-        logging.info('adding content-length')
-    logging.info(pprint.pformat(r.headers))
+        logger.info('adding content-length')
+    logger.info(pprint.pformat(r.headers))
     return r
 
 @app.route('/wapt-host/<string:input_package_name>')
@@ -454,17 +496,17 @@ def get_host_package(input_package_name):
     global wapt_folder
     #TODO straighten this -host stuff
     host_folder = wapt_folder + '-host'
-    logging.info( "get host package : " + input_package_name)
+    logger.info( "get host package : " + input_package_name)
     package_name = secure_filename(input_package_name)
     r =  send_from_directory(host_folder, package_name)
     # on line content-length is not added to the header.
-    logging.info(pprint.pformat(r.headers))
+    logger.info(pprint.pformat(r.headers))
 
-    logging.info("checking if content-length is there or not")
+    logger.info("checking if content-length is there or not")
     if 'Content-Length' not in r.headers:
         r.headers.add_header('Content-Length', int(os.path.getsize(os.path.join(host_folder,package_name))))
-        logging.info('content-length added')
-    logging.info(pprint.pformat(r.headers))
+        logger.info('content-length added')
+    logger.info(pprint.pformat(r.headers))
     return r
 
 @app.route('/wapt-group/<string:input_package_name>')
@@ -472,7 +514,7 @@ def get_group_package(input_package_name):
     global wapt_folder
     #TODO straighten this -group stuff
     group_folder = wapt_folder + '-group'
-    logging.info( "get group package : " + input_package_name)
+    logger.info( "get group package : " + input_package_name)
     package_name = secure_filename(input_package_name)
     r =  send_from_directory(group_folder, package_name)
     # on line content-length is not added to the header.
@@ -494,22 +536,16 @@ def authenticate():
     {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 if __name__ == "__main__":
-    # SSL Support
-    #port = 8443
-    #ssl_a = cheroot.ssllib.ssl_builtin.BuiltinSSLAdapter("srvlts1.crt", "srvlts1.key", "ca.crt")
-    #wsgi_d = cheroot.wsgi.WSGIPathInfoDispatcher({'/': app})
-    #server = cheroot.wsgi.WSGIServer(('0.0.0.0', port),wsgi_app=wsgi_d,ssl_adapter=ssl_a)
     debug=False
     if debug==True:
         app.run(host='0.0.0.0',port=30880,debug=True)
     else:
         port = 8080
-        wsgi_d = cheroot.wsgi.WSGIPathInfoDispatcher({'/': app})
-        server = cheroot.wsgi.WSGIServer(('0.0.0.0', port),wsgi_app=wsgi_d)
+        server = Rocket(('0.0.0.0', port), 'wsgi', {"wsgi_app":app})
         try:
-            print ("starting waptserver")
+            logger.info("starting waptserver")
             server.start()
         except KeyboardInterrupt:
-            print ("stopping waptserver")
+            logger.info("stopping waptserver")
             server.stop()
 

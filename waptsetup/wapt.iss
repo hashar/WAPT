@@ -47,6 +47,7 @@ Source: "..\waptconsole.exe"; DestDir: "{app}";
 Source: "..\waptdevutils.py"; DestDir: "{app}";
 Source: "..\dmidecode.exe"; DestDir: "{app}";
 Source: "..\wapt.ico"; DestDir: "{app}";
+Source: "innosetup\*"; DestDir: "{app}\waptsetup\innosetup";
 Source: "wapt.iss"; DestDir: "{app}\waptsetup";
 Source: "services.iss"; DestDir: "{app}\waptsetup";
 Source: "..\COPYING.txt"; DestDir: "{app}";
@@ -233,20 +234,13 @@ end;
 function GetRepoURL(Param: String):String;
 begin
   if WizardSilent then
-    result := GetIniString('Global', 'repo_url', '',ExpandConstant('{app}\wapt-get.ini'))
-  else
-    if rbCustomUrl.Checked then
-       result := teWaptServerUrl.Text + '/wapt'
-    else 
-       result :='';
+    result :='http://wapt/wapt';
 end;
 
 function GetWaptServerURL(Param: String):String;
 begin
   if WizardSilent then
-    result := GetIniString('Global', 'wapt_server', '',ExpandConstant('{app}\wapt-get.ini'))
-  else
-    result := teWaptServerUrl.Text;
+    result := 'http://wapt:8080';
 end;
 
 

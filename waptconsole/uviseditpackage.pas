@@ -5,11 +5,11 @@ unit uviseditpackage;
 interface
 
 uses
-  Classes, SysUtils, memds, BufDataset, FileUtil, SynHighlighterPython, SynEdit,
-  SynMemo, LSControls, Forms, Controls, Graphics,
+  Classes, SysUtils, FileUtil, SynHighlighterPython, SynEdit,
+  SynMemo, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, ComCtrls, ActnList, Menus, EditBtn, Buttons,
-  process, superobject, UniqueInstance, VirtualTrees,
-  VarPyth, types, ActiveX, LMessages, LCLIntf, LCL, sogrid, vte_json, jsonparser;
+  process, superobject, VirtualTrees,
+  VarPyth, types, ActiveX, LMessages, LCLIntf, LCL, sogrid, vte_json;
 
 type
 
@@ -22,6 +22,7 @@ type
     ActEditRemove: TAction;
     ActEditSavePackage: TAction;
     ActAdvancedMode: TAction;
+    ActAddDepends: TAction;
     ActSearchPackage: TAction;
     ActionList1: TActionList;
     BitBtn2: TBitBtn;
@@ -43,6 +44,7 @@ type
     GridPackages: TSOGrid;
     MemoLog: TMemo;
     MenuItem1: TMenuItem;
+    MenuItem2: TMenuItem;
     MenuItem4: TMenuItem;
     PageControl1: TPageControl;
     Panel1: TPanel;
@@ -53,6 +55,7 @@ type
     Panel8: TPanel;
     Panel9: TPanel;
     PopupMenu1: TPopupMenu;
+    PopupPackages: TPopupMenu;
     PopupMenuEditDepends: TPopupMenu;
     Splitter1: TSplitter;
     Splitter2: TSplitter;
@@ -62,6 +65,8 @@ type
     pgEditPackage: TTabSheet;
     EdSetupPy: TSynEdit;
     jsonlog: TVirtualJSONInspector;
+    procedure ActAddDependsExecute(Sender: TObject);
+    procedure ActAddDependsUpdate(Sender: TObject);
     procedure ActAdvancedModeExecute(Sender: TObject);
     procedure ActBuildUploadExecute(Sender: TObject);
     procedure ActEditRemoveExecute(Sender: TObject);
@@ -91,6 +96,7 @@ type
     FIsUpdated: boolean;
     GridDependsUpdated: boolean;
     FDepends: string;
+    procedure AddSelectedPackages(Sender: TObject);
     function CheckUpdated: boolean;
     procedure SetisAdvancedMode(AValue: boolean);
     procedure SetIsUpdated(AValue: boolean);
@@ -100,13 +106,13 @@ type
     procedure SetDepends(AValue: string);
     procedure SetPackageRequest(AValue: string);
     procedure SetSourcePath(AValue: string);
-    procedure TreeLoadData(tree: TVirtualJSONInspector; jsondata: string);
     property Depends: string read GetDepends write SetDepends;
     function updateprogress(receiver: TObject; current, total: integer): boolean;
   public
     { public declarations }
     waptpath: string;
     IsHost: boolean;
+    isGroup: boolean;
     IsNewPackage: boolean;
     PackageEdited: ISuperObject;
     property isAdvancedMode: boolean read FisAdvancedMode write SetisAdvancedMode;
@@ -117,14 +123,17 @@ type
 
 function EditPackage(packagename: string; advancedMode: boolean): ISuperObject;
 function CreatePackage(packagename: string; advancedMode: boolean): ISuperObject;
+function CreateGroup(packagename: string; advancedMode: boolean): ISuperObject;
 function EditHost(hostname: string; advancedMode: boolean): ISuperObject;
+function EditHostDepends(hostname: string; newDependsStr: string): ISuperObject;
+function EditGroup(group: string; advancedMode: boolean): ISuperObject;
 
 
 var
   VisEditPackage: TVisEditPackage;
   privateKeyPassword: string = '';
-  waptServerPassword: string = '';
   waptServerUser: string = 'admin';
+  waptServerPassword: string = '';
 
 implementation
 
@@ -165,13 +174,18 @@ begin
     end;
 end;
 
-function EditHost(hostname: string; advancedMode: boolean): ISuperObject;
+function CreateGroup(packagename: string; advancedMode: boolean): ISuperObject;
 begin
   with TVisEditPackage.Create(nil) do
     try
-      IsHost := True;
+      Caption:='Editer le groupe';
+      EdPackage.EditLabel.Caption := 'Groupe';
+      pgEditPackage.Caption := 'Paquets devant être présents dans le groupe';
+
       isAdvancedMode := advancedMode;
-      PackageRequest := hostname;
+      IsNewPackage := True;
+      PackageRequest := packagename;
+      EdSection.ItemIndex := 4;
       if ShowModal = mrOk then
         Result := PackageEdited
       else
@@ -181,6 +195,69 @@ begin
     end;
 end;
 
+function EditHost(hostname: string; advancedMode: boolean): ISuperObject;
+begin
+  with TVisEditPackage.Create(nil) do
+    try
+      IsHost := True;
+      isAdvancedMode := advancedMode;
+      PackageRequest := hostname;
+      Caption:='Editer la machine';
+      if ShowModal = mrOk then
+        Result := PackageEdited
+      else
+        Result := nil;
+    finally
+      Free;
+    end;
+end;
+
+function EditGroup(group: string; advancedMode: boolean): ISuperObject;
+begin
+  with TVisEditPackage.Create(nil) do
+    try
+      isGroup := True;
+      isAdvancedMode := advancedMode;
+      PackageRequest := group;
+
+      Caption:='Editer le groupe';
+      EdPackage.EditLabel.Caption := 'Groupe';
+      pgEditPackage.Caption := 'Paquets devant être présents dans le groupe';
+
+      if ShowModal = mrOk then
+        Result := PackageEdited
+      else
+        Result := nil;
+    finally
+      Free;
+    end;
+end;
+
+function EditHostDepends(hostname: string; newDependsStr: string): ISuperObject;
+var
+  oldDepends, newDepends: ISuperObject;
+  i: word;
+begin
+  with TVisEditPackage.Create(nil) do
+    try
+      IsHost := True;
+      PackageRequest := hostname;
+
+      oldDepends := Split(Depends, ',');
+      newDepends := Split(newDependsStr, ',');
+      for i := 0 to newDepends.AsArray.Length - 1 do
+      begin
+        if not StrIn(newDepends.AsArray.S[i], olddepends) then
+          olddepends.AsArray.Add(newDepends.AsArray.S[i]);
+      end;
+      Depends := Join(',', olddepends);
+
+      Result := PackageEdited;
+      ActBuildUploadExecute(nil);
+    finally
+      Free;
+    end;
+end;
 
 { TVisEditPackage }
 procedure TVisEditPackage.cbShowLogClick(Sender: TObject);
@@ -284,6 +361,11 @@ end;
 procedure TVisEditPackage.GridDependsDragDrop(Sender: TBaseVirtualTree;
   Source: TObject; DataObject: IDataObject; Formats: TFormatArray;
   Shift: TShiftState; const Pt: TPoint; var Effect: DWORD; Mode: TDropMode);
+begin
+  AddSelectedPackages(Sender);
+end;
+
+procedure TVisEditPackage.AddSelectedPackages(Sender: TObject);
 var
   i: integer;
   sel: TNodeArray;
@@ -433,6 +515,16 @@ begin
   isAdvancedMode := ActAdvancedMode.Checked;
 end;
 
+procedure TVisEditPackage.ActAddDependsUpdate(Sender: TObject);
+begin
+  ActAddDepends.Enabled := GridPackages.SelectedCount > 0;
+end;
+
+procedure TVisEditPackage.ActAddDependsExecute(Sender: TObject);
+begin
+  AddSelectedPackages(Sender);
+end;
+
 procedure TVisEditPackage.ActExecCodeExecute(Sender: TObject);
 begin
   MemoLog.Clear;
@@ -464,25 +556,6 @@ end;
 procedure TVisEditPackage.FormShow(Sender: TObject);
 begin
   ActEditSearch.Execute;
-end;
-
-procedure TVisEditPackage.TreeLoadData(tree: TVirtualJSONInspector; jsondata: string);
-var
-  jsp: TJSONParser;
-
-begin
-  tree.Clear;
-  if (jsondata <> '') then
-    try
-      tree.BeginUpdate;
-      jsp := TJSONParser.Create(jsondata);
-      if assigned(tree.RootData) then
-        tree.rootdata.Free;
-      tree.rootData := jsp.Parse;
-      jsp.Free;
-    finally
-      tree.EndUpdate;
-    end;
 end;
 
 function MkTempDir(prefix: string = ''): string;
@@ -517,7 +590,8 @@ begin
       begin
         target_directory := MkTempDir();
         FisTempSourcesDir := True;
-        res := DMPython.RunJSON(format('mywapt.edit_host("%s",target_directory="%s")',
+        res := DMPython.RunJSON(
+          format('mywapt.edit_host("%s",target_directory=r"%s",use_local_sources=False)',
           [FPackageRequest, target_directory]));
         EdPackage.EditLabel.Caption := 'Machine';
         Caption := 'Modifier la configuration de la machine';
@@ -531,8 +605,13 @@ begin
           try
             ProgressTitle('Téléchargement en cours');
             Application.ProcessMessages;
-
-            grid := uwaptconsole.VisWaptGUI.GridPackages;
+            if isGroup then
+            begin
+              Caption := 'Modifier la configuration du groupe';
+              grid := uwaptconsole.VisWaptGUI.GridGroups;
+            end
+            else
+              grid := uwaptconsole.VisWaptGUI.GridPackages;
             n := grid.GetFirstSelected();
             if n <> nil then
               try
@@ -540,9 +619,11 @@ begin
                 filePath := AppLocalDir + 'cache\' + filename;
                 if not DirectoryExists(AppLocalDir + 'cache') then
                   mkdir(AppLocalDir + 'cache');
-                if not FileExists(filePath) then
-                  Wget(GetWaptRepoURL + '/' + filename, filePath,
-                    ProgressForm, @updateprogress);
+                // la gestion du cache implique de lire la version di paquet WAPT dans le fichier control.
+                // (paquets de groupe et paquets host)
+                //if not FileExists(filePath) then
+                Wget(GetWaptRepoURL + '/' + filename, filePath,
+                  ProgressForm, @updateprogress, WaptUseLocalConnectionProxy);
               except
                 ShowMessage('Téléchargement annulé');
                 if FileExists(filePath) then
@@ -612,7 +693,6 @@ begin
     ShowMessageFmt('Attention, les paquets %s ont été ignorés car introuvables',
       [dependencies.S['missing']]);
     GridDependsUpdated := True;
-
   end;
   FIsUpdated := True;
 end;

@@ -114,12 +114,21 @@ def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',default_wa
     if not (os.path.normcase(os.path.abspath( os.path.dirname(source))) == os.path.normcase(os.path.abspath(target))):
         filecopyto(source,target)
     codecs.open(iss_template,'w',encoding='utf8').write('\n'.join(new_iss))
-    inno_directory = '%s\\Inno Setup 5\\Compil32.exe' % programfiles32
+    #inno_directory = '%s\\Inno Setup 5\\Compil32.exe' % programfiles32
+    inno_directory =  makepath(wapt.wapt_base_dir,'waptsetup','innosetup','ISCC.exe')
     if not os.path.isfile(inno_directory):
         raise Exception(u"Innosetup n'est pas disponible (emplacement %s), veuillez l'installer" % inno_directory)
-    run('"%s" /cc %s' % (inno_directory,iss_template))
+    run('"%s"  %s' % (inno_directory,iss_template))
     print('%s compiled successfully' % (outputfile, ))
     return os.path.join(destination,os.path.basename(outputfile))
+
+def upload_wapt_setup(wapt,waptsetup_path, wapt_server_user, wapt_server_passwd):
+    auth =  (wapt_server_user, wapt_server_passwd)
+    with open(waptsetup_path,'rb') as afile:
+        #req = requests.post("%s/upload_waptsetup" % wapt.wapt_server,data=afile,proxies=wapt.proxies,verify=False,auth=auth)
+        req = requests.post("%s/upload_waptsetup" % (wapt.wapt_server,),files={'file':afile},proxies=wapt.proxies,verify=False,auth=auth)
+        req.raise_for_status()
+    return req.content
 
 def diff_computer_ad_wapt(wapt):
     """Return the computer in the Active Directory but not in Wapt Serveur """
@@ -161,6 +170,7 @@ def updateTisRepo(wapt,search_string):
     wapt = common.Wapt(config_filename=wapt)
     repo = wapt.config.get('global','templates_repo_url')
     wapt.repositories[0].repo_url = repo if repo else 'http://wapt.tranquil.it/wapt'
+    wapt.proxies =  {'http':wapt.config.get('global','http_proxy')}
     wapt.dbpath = r':memory:'
     wapt.update(register=False)
     return wapt.search(search_string)
@@ -171,6 +181,10 @@ def searchLastPackageTisRepo(wapt,search_strings):
     wapt = common.Wapt(config_filename=wapt)
     repo = wapt.config.get('global','templates_repo_url')
     wapt.repositories[0].repo_url = repo if repo else 'http://wapt.tranquil.it/wapt'
+    wapt.proxies =  {'http':wapt.config.get('global','http_proxy')}
+    print wapt.config.has_option('global', 'use_local_connection_proxy')
+    if wapt.config.get('global', 'use_local_connection_proxy'):
+        print "test"
     wapt.dbpath = r':memory:'
     wapt.update(register=False)
     for search_string in search_strings.split(','):
@@ -181,12 +195,15 @@ def duplicate_from_tis_repo(wapt,file_name,depends=[]):
     import tempfile
     wapt = common.Wapt(config_filename=wapt)
     prefix = wapt.config.get('global','default_package_prefix')
+    wapt.proxies =  {'http':wapt.config.get('global','http_proxy')}
+    if not prefix:
+        prefix = "tis"
     old_file_name = PackageEntry().load_control_from_wapt(file_name).package
     new_file_name ="%s-%s" % (prefix, old_file_name.split('-',1)[-1])
     wapt.config.set('global','default_sources_root',tempfile.mkdtemp())
 
-    result = wapt.duplicate_package(file_name,new_file_name,build=False)
-
+    result = wapt.duplicate_package(file_name,new_file_name,build=False,auto_inc_version=False)
+    print result
     source_dir = []
     new_depends = []
     if 'source_dir' in result:
@@ -197,7 +214,7 @@ def duplicate_from_tis_repo(wapt,file_name,depends=[]):
                 old_file_name = PackageEntry().load_control_from_wapt(depend).package
                 new_file_name ="%s-%s" % (prefix, old_file_name.split('-',1)[-1])
                 new_depends.append(new_file_name)
-                result = wapt.duplicate_package(depend,new_file_name,build=False)
+                result = wapt.duplicate_package(depend,new_file_name,build=False,auto_inc_version=False)
                 source_dir.append(result['source_dir'])
 
         if new_depends:
@@ -217,4 +234,4 @@ def login_to_waptserver(url, login, passwd,newPass=""):
         return unicode(str(e.message), 'ISO-8859-1')
 
 if __name__ == '__main__':
-    pass
+    searchLastPackageTisRepo(r'C:\Users\Administrateur\AppData\Local\waptconsole\waptconsole.ini','')

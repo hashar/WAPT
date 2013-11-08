@@ -77,7 +77,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.7.9"
+__version__ = "0.8"
 
 logger = logging.getLogger()
 
@@ -1353,7 +1353,7 @@ class WaptDB(WaptBaseDB):
         else:
             return []
 
-    def packages_search(self,searchwords=[],exclude_host_repo=True):
+    def packages_search(self,searchwords=[],exclude_host_repo=True,section_filter=None):
         """Return a list of package entries matching the search words"""
         if not isinstance(searchwords,list) and not isinstance(searchwords,tuple):
             searchwords = [searchwords]
@@ -1365,6 +1365,9 @@ class WaptDB(WaptBaseDB):
             search = ["lower(description || package) like ?"] *  len(words)
         if exclude_host_repo:
             search.append('repo <> "wapt-host"')
+        if section_filter:
+            search.append('section in ( %s )' %  ",".join([ '"%s"' % x for x in  section_filter.split(',')]))
+
         result = self.query_package_entry("select * from wapt_package where %s" % " and ".join(search),words)
         result.sort()
         return result
@@ -1803,7 +1806,13 @@ class Wapt(object):
             self.after_upload = self.config.get('global','after_upload')
 
         if self.config.has_option('global','http_proxy'):
-            self.proxies = {'http':self.config.get('global','http_proxy')}
+            if self.config.has_option('global', 'use_local_connection_proxy'):
+                if self.config.get('global', 'use_local_connection_proxy') == 'True':
+                    self.proxies = {'http':self.config.get('global','http_proxy')}
+                else:
+                    self.proxies = None
+            else:
+                self.proxies = {'http':self.config.get('global','http_proxy')}
 
         if self.config.has_option('global','wapt_server'):
             self.wapt_server = self.config.get('global','wapt_server')
@@ -2929,11 +2938,11 @@ class Wapt(object):
             result.append(host_package)
         return result
 
-    def search(self,searchwords=[],exclude_host_repo=True):
+    def search(self,searchwords=[],exclude_host_repo=True,section_filter=None):
         """Returns a list of packages which have the searchwords
            in their description
         """
-        available = self.waptdb.packages_search(searchwords=searchwords,exclude_host_repo=exclude_host_repo)
+        available = self.waptdb.packages_search(searchwords=searchwords,exclude_host_repo=exclude_host_repo,section_filter=section_filter)
         installed = self.waptdb.installed(include_errors=True)
         upgradable =  self.waptdb.upgradeable()
         for p in available:
@@ -3856,7 +3865,7 @@ class Wapt(object):
             elif os.path.isdir(target_directory) and os.listdir(target_directory):
                 raise Exception('directory %s is not empty, aborting.' % target_directory)
 
-            return self.duplicate_package(packagename=hostname,newname=hostname,target_directory=target_directory,build=False,append_depends = append_depends)
+            return self.duplicate_package(packagename=hostname,newname=hostname,target_directory=target_directory,build=False,append_depends = append_depends,usecache=False)
         elif os.path.isdir(target_directory) and os.listdir(target_directory):
             raise Exception('directory %s is not empty, aborting.' % target_directory)
         else:
@@ -3872,7 +3881,8 @@ class Wapt(object):
             private_key=None,
             callback=pwd_callback,
             append_depends=None,
-            auto_inc_version=True):
+            auto_inc_version=True,
+            usecache=True):
         """Duplicate an existing package from repositories into targetdirectory with newname.
             Return  {'target':new package or new source directory,'package':new PackageEntry,'source_dir':new source directory}
             unzip: unzip packages at end for modifications, don't sign, return directory name
@@ -3930,7 +3940,7 @@ class Wapt(object):
             zip = ZipFile(source_filename,allowZip64=True)
             zip.extractall(path=target_directory)
         else:
-            filenames = self.download_packages([packagename])
+            filenames = self.download_packages([packagename],usecache=usecache)
             source_filename = (filenames['downloaded'] or filenames['skipped'])[0]
             source_control = PackageEntry().load_control_from_wapt(source_filename)
             if not target_directory:

@@ -29,3 +29,4 @@ test/lib/
 i386-win32
 /waptconsole/lib/i386-win32
 /waptconsole/lib
+/ssl/htouvet.crt

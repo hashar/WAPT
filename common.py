@@ -1893,6 +1893,11 @@ class Wapt(object):
         """Stores in local db the current run status for tray display"""
         logger.info('Status : %s' % ensure_unicode(waptstatus))
         self.write_param('runstatus',waptstatus)
+        if self.wapt_server:
+            try:
+                self.update_server_status()
+            except Exception,e:
+                logger.critical('Unable to update server with current status : %s' % ensure_unicode(e))
 
 
     def find_wapt_server(self):
@@ -2060,18 +2065,15 @@ class Wapt(object):
         # kill old wapt-get
         mindate = time.time() - max_ttl*60
 
-        wapt_processes = [ p for p in setuphelpers.find_processes('wapt-get') if p.pid <> os.getpid() ]
-
-        # to keep the list of supposedly killed wapt-get processes
         killed=[]
-        for p in wapt_processes:
+        for p in psutil.process_iter():
             try:
-                if p.create_time < mindate:
+                if p.pid <> os.getpid() and (p.create_time < mindate) and p.name in ('wapt-get','wapt-get.exe'):
                     logger.debug('Killing process tree of pid %i' % p.pid)
                     setuphelpers.killtree(p.pid)
                     logger.debug('Killing pid %i' % p.pid)
                     killed.append(p.pid)
-            except psutil.NoSuchProcess,psutil.AccessDenied:
+            except (psutil.NoSuchProcess,psutil.AccessDenied):
                 pass
 
         # reset install_status
@@ -3005,7 +3007,9 @@ class Wapt(object):
             return json.dumps(inv,indent=True)
 
     def get_last_update_status(self):
-        return json.loads(self.read_param('last_update_status','{"date": "", "running_tasks": [], "errors": [], "upgrades": []}'))
+        status = json.loads(self.read_param('last_update_status','{"date": "", "running_tasks": [], "errors": [], "upgrades": []}'))
+        status['runstatus'] = self.read_param('runstatus','')
+        return json.loads(json.dumps(status))
 
     def update_server_status(self,force=False):
         """Send packages and software informations to WAPT Server, don't send dmi

@@ -415,6 +415,14 @@ def run(*cmd,**args):
     if not "shell" in args:
         args['shell']=True
 
+    if not 'accept_returncodes' in args:
+        # 1603 : souvent renvoyé quand déjà installé.
+        # 3010 : reboot required.
+        valid_returncodes = [0,1603,3010]
+    else:
+        valid_returncodes = args['accept_returncodes']
+        del args['accept_returncodes']
+
     proc = psutil.Popen(*cmd, bufsize=1, stdout=PIPE, stderr=PIPE,**args)
 
     stdout_worker = RunReader(worker, proc.stdout,args.get('on_write',None))
@@ -431,11 +439,7 @@ def run(*cmd,**args):
         proc.kill()
         raise TimeoutExpired(cmd,timeout,''.join(output))
     proc.returncode = _subprocess.GetExitCodeProcess(proc._handle)
-    if not 'accept_returncodes' in args:
-        # 1603 : souvent renvoyé quand déjà installé.
-        # 3010 : reboot required.
-        accept_returncodes = [0,1603,3010]
-    if not proc.returncode in accept_returncodes:
+    if not proc.returncode in valid_returncodes:
         raise subprocess.CalledProcessError(proc.returncode,cmd,''.join(output))
     else:
         if proc.returncode == 0:
@@ -469,8 +473,11 @@ def isrunning(processname):
     """Check if a process is running, example isrunning('explorer')"""
     processname = processname.lower()
     for p in psutil.process_iter():
-        if p.name.lower() == processname or p.name.lower() == processname+'.exe':
-            return True
+        try:
+            if p.name.lower() == processname or p.name.lower() == processname+'.exe':
+                return True
+        except (psutil.AccessDenied,psutil.NoSuchProcess):
+            pass
     return False
     """
     try:
@@ -487,12 +494,15 @@ def killalltasks(exenames,include_children=True):
         exenames = [exenames]
     exenames = [exe.lower() for exe in exenames]+[exe.lower()+'.exe' for exe in exenames]
     for p in psutil.process_iter():
-        if p.name.lower() in exenames:
-            logger.debug('Kill process %i' % (p.pid,))
-            if include_children:
-                killtree(p.pid)
-            else:
-                p.kill()
+        try:
+            if p.name.lower() in exenames:
+                logger.debug('Kill process %i' % (p.pid,))
+                if include_children:
+                    killtree(p.pid)
+                else:
+                    p.kill()
+        except (psutil.AccessDenied,psutil.NoSuchProcess):
+            pass
 
     """
     for c in exenames:
@@ -513,7 +523,15 @@ def processnames_list():
 def find_processes(process_name):
     """Return list of Process having process_name"""
     process_name = process_name.lower()
-    return [p for p in psutil.get_process_list() if p.name.lower() in [process_name,process_name+'.exe'] ]
+    result = []
+    for p in psutil.process_iter():
+        try:
+            if p.name.lower() in [process_name,process_name+'.exe']:
+                result.append(p)
+        except (psutil.AccessDenied,psutil.NoSuchProcess):
+            pass
+
+    return result
 
 def messagebox(title,msg):
     win32api.MessageBox(0, msg, title, win32con.MB_ICONINFORMATION)

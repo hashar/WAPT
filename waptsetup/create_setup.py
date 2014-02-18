@@ -111,12 +111,11 @@ rev =  client.info (checkout_dir).get("revision").number
 
 print "building waptsetup_%s.exe" % rev
 
-issfile = os.path.join(checkout_dir,'waptsetup','wapt.iss')
+issfile = os.path.join(checkout_dir,'waptsetup','waptsetup.iss')
 print "running waptsetup for iss file : %s " % issfile
 issc_binary = os.path.join(programfiles32(),'Inno Setup 5','ISCC.exe')
 
-print subprocess.check_output('%s /skSign="%s" /fwaptsetup_rev%s "%s"' % (issc_binary, ksign,rev,issfile))
-
+print subprocess.check_output([issc_binary,"/skSign=%s" % ksign,'/fwaptsetup_rev%s' % rev,"%s"%issfile])
 
 localfile = os.path.join(os.path.dirname(issfile),'waptsetup_rev%s.exe' % rev )
 remotefile = os.path.join('/var/www/wapt/nightly/','waptsetup_rev%s.exe' % rev)

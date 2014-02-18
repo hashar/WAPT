@@ -40,10 +40,44 @@ p, ul, ol {
 
 ul, ol {
 }
+
 .error {
     color: red;
     font-size: 1.4em;
 }
+
+.status-error {
+    color: red;
+}
+
+.status-installed {
+    font-weight: bold;
+}
+
+.status-upgradable {
+    color: orange;
+    font-weight: bold;
+}
+
+.package-version {
+    color: black;
+    font-weight: normal;
+}
+
+img.package-icon {
+	display: block;
+    float: left;
+    margin: 5px auto;
+	margin-left: auto;
+	margin-right: 10px;
+
+}
+
+p.package-description {
+    color: ltgray;
+    font-weight: normal;
+}
+
 .info {
     color: orange;
     font-size: 1.3em;
@@ -103,7 +137,7 @@ a:hover {
 	font: normal 14px Georgia, "Times New Roman", Times, serif;
 	font-style: italic;
 	color: #FFFFFF;
-} 
+}
 
 #logo a {
 	border: none;
@@ -357,6 +391,9 @@ td.loading {
     vertical-align: center;
 }
 
+table p {
+	margin: 0;
+}
 
 table.sample {
     border-width: 1px;

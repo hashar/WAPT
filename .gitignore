@@ -33,3 +33,4 @@ i386-win32
 /waptsetup/waptsetup.exe
 
 /log/*.log
+/waptautodeploy/lib

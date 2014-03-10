@@ -77,7 +77,7 @@ from setuphelpers import ensure_unicode
 
 import types
 
-__version__ = "0.8.7"
+__version__ = "0.8.9"
 
 logger = logging.getLogger()
 
@@ -364,8 +364,12 @@ def ssl_verify_content(content,signature,public_certs):
 
 
 def default_json(o):
-    if isinstance(o,PackageEntry):
+    if hasattr(o,'as_dict'):
         return o.as_dict()
+    elif hasattr(o,'as_json'):
+        return o.as_json()
+    elif isinstance(o,datetime.datetime):
+        return o.isoformat()
     else:
         return u"%s" % (ensure_unicode(o),)
 
@@ -512,26 +516,26 @@ class LogInstallOutput(object):
         self.waptdb = waptdb
         self.rowid = rowid
         self.threadid = threading.current_thread()
+        self.lock = threading.RLock()
 
     def write(self,txt):
-        txt = ensure_unicode(txt)
-        self.console.write(txt)
-        if txt <> '\n':
-            self.output.append(txt)
-            if txt and txt[-1]<>'\n':
-                txtdb = txt+'\n'
-            else:
-                txtdb = txt
-            if threading.current_thread() == self.threadid:
-                self.waptdb.update_install_status(self.rowid,'RUNNING',txtdb if not txtdb == None else None)
+        with self.lock:
+            txt = ensure_unicode(txt)
+            self.console.write(txt)
+            if txt <> '\n':
+                self.output.append(txt)
+                if txt and txt[-1]<>'\n':
+                    txtdb = txt+'\n'
+                else:
+                    txtdb = txt
+                if threading.current_thread() == self.threadid:
+                    self.waptdb.update_install_status(self.rowid,'RUNNING',txtdb if not txtdb == None else None)
 
     def __getattrib__(self, name):
         if hasattr(self.console,'__getattrib__'):
             return self.console.__getattrib__(name)
         else:
             return self.console.__getattribute__(name)
-
-
 
 ###########
 def reg_openkey_noredir(key, sub_key, sam=KEY_READ):
@@ -595,6 +599,9 @@ def force_utf8_no_bom(filename):
         except:
             content = codecs.open(filename, encoding='iso8859-15').read()
             codecs.open(filename, mode='wb', encoding='utf8').write(content)
+
+class EWaptCancelled(Exception):
+    pass
 
 class WaptBaseDB(object):
     dbpath = ''
@@ -1706,10 +1713,13 @@ key_passwd = None
 class Wapt(object):
     """Global WAPT engine"""
 
-    def __init__(self,config=None,config_filename=None,defaults=None,disable_update_server_status=False):
+    def __init__(self,config=None,config_filename=None,defaults=None,disable_update_server_status=True):
         """Initialize engine with a configParser instance (inifile) and other defaults in a dictionary
             Main properties are :
         """
+        # used to signal to cancel current operations ASAP
+        self.task_is_cancelled = threading.Event()
+
         assert not config or isinstance(config,RawConfigParser)
         self._waptdb = None
         self._waptsessiondb = None
@@ -2070,7 +2080,7 @@ class Wapt(object):
         killed=[]
         for p in psutil.process_iter():
             try:
-                if p.pid <> os.getpid() and (p.create_time < mindate) and p.name in ('wapt-get','wapt-get.exe'):
+                if p.pid <> os.getpid() and (p.create_time() < mindate) and p.name() in ('wapt-get','wapt-get.exe'):
                     logger.debug('Killing process tree of pid %i' % p.pid)
                     setuphelpers.killtree(p.pid)
                     logger.debug('Killing pid %i' % p.pid)
@@ -2085,7 +2095,7 @@ class Wapt(object):
               where install_status in ('INIT','RUNNING')
            """ )
 
-        all_pids = psutil.get_pid_list()
+        all_pids = psutil.pids()
         reset_error = []
         result = []
         for rec in init_run_pids:
@@ -2218,6 +2228,11 @@ class Wapt(object):
         conf.set('global','md5_password',md5.md5(pwd).hexdigest())
         conf.write(open(self.config_filename,'wb'))
 
+
+    def check_cancelled(self,msg='Task cancelled'):
+        if self.task_is_cancelled.is_set():
+            raise EWaptCancelled(msg)
+
     def install_wapt(self,fname,params_dict={},explicit_by=None):
         """Install a single wapt package given its WAPT filename.
         return install status"""
@@ -2226,6 +2241,7 @@ class Wapt(object):
         old_stdout = None
         old_stderr = None
 
+        self.check_cancelled()
         logger.info(u"Register start of install %s as user %s to local DB with params %s" % (fname, setuphelpers.get_current_user(), params_dict))
         logger.info(u"Interactive user:%s, usergroups %s" % (self.user,self.usergroups))
         status = 'INIT'
@@ -2265,6 +2281,7 @@ class Wapt(object):
                 logger.addHandler(hdlr)
             """
 
+            self.check_cancelled()
             logger.info(u"Installing package " + fname)
             # case where fname is a wapt zipped file, else directory (during developement)
             istemporary = False
@@ -2280,6 +2297,7 @@ class Wapt(object):
                 raise Exception('%s is not a file nor a directory, aborting.' % fname)
 
             # chech sha1
+            self.check_cancelled()
             manifest_filename = os.path.join( packagetempdir,'WAPT','manifest.sha1')
             if os.path.isfile(manifest_filename):
                 manifest_data = open(manifest_filename,'r').read()
@@ -2307,6 +2325,7 @@ class Wapt(object):
                 if not self.allow_unsigned and istemporary:
                     raise Exception('Package %s does not contain a manifest.sha1 file, and unsigned packages install is not allowed' % fname)
 
+            self.check_cancelled()
             setup_filename = os.path.join( packagetempdir,'setup.py')
             previous_cwd = os.getcwd()
             os.chdir(os.path.dirname(setup_filename))
@@ -2774,6 +2793,9 @@ class Wapt(object):
             else:
                 raise Exception('Invalid package request %s' % p)
         for entry in packages:
+
+            self.check_cancelled()
+
             packagefilename = entry.filename.strip('./')
             download_url = entry.repo_url+'/'+packagefilename
             fullpackagepath = os.path.join(self.package_cache_dir,packagefilename)
@@ -2795,6 +2817,7 @@ class Wapt(object):
                 logger.info("  Downloading package from %s" % download_url)
                 try:
                     def report(received,total,speed):
+                        self.check_cancelled()
                         stat = u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total, speed)
                         print stat,
                         self.runstatus='Downloading %s : %s' % (entry.package,stat)
@@ -2815,6 +2838,7 @@ class Wapt(object):
         """Removes a package giving its package name, unregister from local status DB"""
         result = {'removed':[],'errors':[]}
         try:
+            self.check_cancelled()
             # development mode, remove a package by its directory
             if os.path.isfile(os.path.join(package,'WAPT','control')):
                 package = PackageEntry().load_control_from_wapt(package).package
@@ -3051,7 +3075,7 @@ class Wapt(object):
                 return json.dumps(inv,indent=True)
 
     def wapt_status(self):
-        """retrun wapt version info"""
+        """return wapt version info"""
         result = {}
         waptexe = os.path.join(self.wapt_base_dir,'wapt-get.exe')
         if os.path.isfile(waptexe):
@@ -4132,11 +4156,86 @@ class Wapt(object):
                 result['missing'].append(package_name)
         return result
 
+    def add_iconpng_wapt(self,package,iconpath='',private_key_passwd=None):
+        """Add a WAPT/icon.png file to existing WAPT package without icon
+            wapt =
+        """
+        if not os.path.isfile(package) and not self.is_available(package):
+            raise Exception('{} package does not exist'.format(package))
+        has_icon = None
+        if os.path.isfile(package):
+            with zipfile.ZipFile(fname,'r',allowZip64=True) as myzip:
+                try:
+                    icon_info = myzip.getinfo(u'WAPT/icon.png')
+                    logger.warning('Already an icon in package {}, keeping it'.format(package))
+                    has_icon = True
+                except KeyError:
+                    has_icon = False
+        if not has_icon:
+            tempdir = tempfile.mkdtemp()
+            try:
+                result = self.edit_package(package,target_directory = tempdir)
+                target_icon_path = os.path.join(result['target'],'WAPT','icon.png')
+                has_icon = os.path.exists(target_icon_path)
+                if not has_icon:
+                    if not os.path.isfile(iconpath):
+                        # we take an icon in the local cache ...
+                        iconpath = os.path.join(self.wapt_base_dir,u'cache',u'{}.png'.format(result['package'].package))
+                        if not os.path.isfile(iconpath):
+                            # try to find an icon in the first exe file we find...
+                            logger.info('No suitable icon in cache, trying exe')
+                            from extract_icon import extract_icon
+                            for exefile in glob.glob( os.path.join(result['target'],'*.exe')):
+                                try:
+                                    icon = extract_icon(exefile)
+                                    if len(icon)>10:
+                                        logger.info('Using icon from {}'.format(exefile))
+                                        with open(target_icon_path,'wb') as png:
+                                            png.write(icon)
+                                            has_icon = True
+                                            break
+                                except:
+                                    pass
+                            if not has_icon:
+                                raise Exception('{} icon does not exist'.format(iconpath))
+                        else:
+                            shutil.copyfile(iconpath,target_icon_path)
+
+                    build = self.build_package(result['target'])
+
+                    def pwd_callback(*args):
+                        """Default password callback for opening private keys"""
+                        return private_key_passwd
+
+                    def pwd_callback2(*args):
+                        """Default password callback for opening private keys"""
+                        global key_passwd
+                        if not key_passwd:
+                            key_passwd = getpass.getpass('Private key password :').encode('ascii')
+                        return key_passwd
+
+                    if self.private_key:
+                        print('Signing %s' % build['filename'])
+                        if private_key_passwd is None:
+                            signature = self.sign_package(build['filename'],callback=pwd_callback2)
+                        else:
+                            signature = self.sign_package(build['filename'],callback=pwd_callback)
+
+                    if not signature:
+                        raise Exception('Unable to sign package {}'.format(package))
+                    logger.info('Package {} successfully built'.format(build['filename']))
+                    return build
+                else:
+                    logger.warning('There is already an icon in package {}, keeping it'.format(package))
+                    return None
+            finally:
+                shutil.rmtree(tempdir,ignore_errors=True)
+        else:
+            return None
+
 
 # for backward compatibility
 Version = setuphelpers.Version  # obsolete
-
-
 
 if __name__ == '__main__':
     """

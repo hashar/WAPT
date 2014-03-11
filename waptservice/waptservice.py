@@ -48,7 +48,7 @@ import common
 import setuphelpers
 from common import Wapt
 
-__version__ = "0.8.8"
+__version__ = "0.8.10"
 
 config = ConfigParser.RawConfigParser()
 
@@ -105,10 +105,10 @@ def beautify(c):
         return jinja2.Markup(c.replace('\r\n','<br>').replace('\n','<br>'))
     elif isinstance(c,str):
         return jinja2.Markup(setuphelpers.ensure_unicode(c).replace('\r\n','<br>').replace('\n','<br>'))
-    elif hasattr(c,'keys') and callable(c.keys):
+    elif isinstance(c,dict) or (hasattr(c,'keys') and callable(c.keys)):
         rows = []
         try:
-            for key in keys:
+            for key in c.keys():
                 rows.append(u'<li><b>{}</b>: {}</li>'.format(beautify(key),beautify(c[key])))
             return jinja2.Markup(u'<ul>{}</ul>'.format(join(rows)))
         except:
@@ -235,22 +235,24 @@ def check_ip_source(f):
 
 
 @app.route('/status')
+@app.route('/status.json')
 @check_ip_source
 def status():
     rows = []
     with sqlite3.connect(dbpath) as con:
         try:
             con.row_factory=sqlite3.Row
-            query = '''select s.package,s.version,s.install_date,s.install_status,s.install_output,
+            query = '''select s.package,s.version,s.install_date,s.install_status,s.install_output,r.description,
                                  (select GROUP_CONCAT(p.version," | ") from wapt_package p where p.package=s.package) as repo_version,explicit_by as install_par
                                  from wapt_localstatus s
+                                 left join wapt_package r on r.package=s.package and r.version=s.version
                                  order by s.package'''
             cur = con.cursor()
             cur.execute(query)
             rows = [ dict(x) for x in cur.fetchall() ]
         except lite.Error, e:
             logger.critical("*********** Error %s:" % e.args[0])
-    if request.args.get('format','html')=='json':
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
         return Response(common.jsondump(rows), mimetype='application/json')
     else:
         return render_template('status.html',packages=rows,format_isodate=format_isodate,Version=setuphelpers.Version)
@@ -350,6 +352,7 @@ def get_runstatus():
     return Response(common.jsondump(data), mimetype='application/json')
 
 @app.route('/checkupgrades')
+@app.route('/checkupgrades.json')
 @check_ip_source
 def get_checkupgrades():
     with sqlite3.connect(dbpath) as con:
@@ -362,43 +365,83 @@ def get_checkupgrades():
             data = json.loads(cur.fetchone()['value'])
         except Exception as e :
             logger.critical("*********** error %s"  % (e,))
-    return Response(common.jsondump(data), mimetype='application/json')
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title=u'Status des mises à jour')
 
 @app.route('/waptupgrade')
+@app.route('/waptupgrade.json')
 @check_ip_source
 def waptupgrade():
     from setuphelpers import run
     output = run('"%s" %s' % (os.path.join(wapt_root_dir,'wapt-get.exe'),'waptupgrade'))
-    return Response(common.jsondump({'result':'OK','message':output}), mimetype='application/json')
+    data = {'result':'OK','message':output}
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title=u'Upgrade du client WAPT')
 
 @app.route('/upgrade')
+@app.route('/upgrade.json')
 @check_ip_source
 def upgrade():
     data1 = task_manager.add_task(WaptUpdate()).as_dict()
     data2 = task_manager.add_task(WaptUpgrade()).as_dict()
-    return Response(common.jsondump({'result':'OK','content':[data1,data2]}), mimetype='application/json')
+    data = {'result':'OK','content':[data1,data2]}
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title='Upgrade')
 
 @app.route('/update')
+@app.route('/update.json')
 @app.route('/updatebg')
 @check_ip_source
 def update():
     data = task_manager.add_task(WaptUpdate()).as_dict()
-    return Response(common.jsondump({'result':'OK','content':data}), mimetype='application/json')
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title=u'Mise à jour des logiciels installés')
 
 @app.route('/longtask')
+@app.route('/longtask.json')
 @check_ip_source
 def longtask():
     data = task_manager.add_task(WaptLongTask(duration=int(request.args.get('duration','60')),raise_error=int(request.args.get('raise_error',0))))
-    return Response(common.jsondump({'result':'OK','content':data.as_dict()}), mimetype='application/json')
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title='LongTask')
 
 @app.route('/cleanup')
+@app.route('/cleanup.json')
 @app.route('/clean')
 @requires_auth
 def cleanup():
     logger.info("run cleanup")
     wapt=Wapt(config_filename=config_filename)
     data = wapt.cleanup()
-    return Response(common.jsondump(data), mimetype='application/json')
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title='Cleanup')
+
+@app.route('/install_log')
+@app.route('/install_log.json')
+def install_log():
+    logger.info("show install log")
+    wapt=Wapt(config_filename=config_filename)
+    try:
+        packagename = request.args.get('package')
+        data = wapt.last_install_log(packagename)
+    except Exception as e:
+        data = {'result':'ERROR','message': u'{}'.format(e)}
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title='Traces de l''installation de {}'.format(packagename))
 
 @app.route('/enable')
 @requires_auth
@@ -417,13 +460,29 @@ def disable():
     return Response(common.jsondump(data), mimetype='application/json')
 
 @app.route('/register')
+@app.route('/register.json')
 @check_ip_source
 def register():
     logger.info("register computer")
-    task_manager.add_task("register computer")
+    data = task_manager.add_task(WaptRegisterComputer()).as_dict()
+
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title='Enregistrement du poste de travail sur le serveur WAPT')
+
+
+
+@app.route('/inventory')
+@app.route('/inventory.json')
+def disable():
+    logger.info("Inventory")
     wapt=Wapt(config_filename=config_filename)
-    data = wapt.register_computer()
-    return Response(common.jsondump(data), mimetype='application/json')
+    data = wapt.inventory()
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data,title='Inventaire du poste de travail')
 
 
 @app.route('/install', methods=['GET'])
@@ -433,37 +492,35 @@ def install():
     package = request.args.get('package')
     force = int(request.args.get('force','0')) == 1
     data = task_manager.add_task(WaptPackageInstall(package,force=force)).as_dict()
-    if request.args.get('format','html')=='json':
+
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
         return Response(common.jsondump(data), mimetype='application/json')
     else:
-        return render_template('install.html',**data)
+        return render_template('install.html',data=data)
 
-@app.route('/package_download', methods=['GET'])
+@app.route('/package_download')
+@app.route('/package_download.json')
 def package_download():
     package = request.args.get('package')
     logger.info("download package %s" % package)
-    task_manager.add_task("download package %s" % package)
-    wapt=Wapt(config_filename=config_filename)
-    try:
-        data = wapt.install(package,download_only=True,force=True)
-    except Exception as e:
-        data = {'errors':[ str(e) ]}
+    data = task_manager.add_task(WaptDownloadPackage(package)).as_dict()
 
-    if request.args.get('format','html')=='json':
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
         return Response(common.jsondump(data), mimetype='application/json')
     else:
-        return render_template('download.html',**data)
+        return render_template('default.html',data=data)
 
 @app.route('/remove', methods=['GET'])
 @requires_auth
 def remove():
     package = request.args.get('package')
     logger.info("remove package %s" % package)
-    data = task_manager.add_task(WaptPackageRemove(package,force=int(request.args.get('force','0')))).as_dict()
-    if request.args.get('format','html')=='json':
+    force=int(request.args.get('force','0'))
+    data = task_manager.add_task(WaptPackageRemove(package,force = force)).as_dict()
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
         return Response(common.jsondump(data), mimetype='application/json')
     else:
-        return render_template('install.html',**data)
+        return render_template('install.html',data=data)
 
 """
 @app.route('/static/<path:filename>', methods=['GET'])
@@ -480,7 +537,7 @@ def index():
             wapt=wapt,
             wapt_info=wapt.wapt_status(),
             update_status=wapt.get_last_update_status())
-    if request.args.get('format','html')=='json':
+    if request.args.get('format','html')=='json'  or request.path.endswith('.json'):
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('index.html',**data)
@@ -527,8 +584,24 @@ def task():
         return render_template('task.html',task=task)
 
 @app.route('/cancel_all_tasks')
+@app.route('/cancel_all_tasks.html')
+@app.route('/cancel_all_tasks.json')
 def cancel_all_tasks():
-    return Response(common.jsondump(task_manager.cancel_all_tasks()), mimetype='application/json')
+    data = task_manager.cancel_all_tasks()
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data)
+
+@app.route('/cancel_running_task')
+@app.route('/cancel_running_task.json')
+def cancel_all_tasks():
+    data = task_manager.cancel_running_task()
+    if request.args.get('format','html')=='json' or request.path.endswith('.json'):
+        return Response(common.jsondump(data), mimetype='application/json')
+    else:
+        return render_template('default.html',data=data)
+
 
 def check_auth(username, password):
     """This function is called to check if a username /
@@ -586,12 +659,19 @@ class WaptTask(object):
         self.logs = []
         self.result = None
         self.summary = ""
-        self.progress = 0
+        # from 0 to 100%
+        self.progress = None
 
     def update_status(self,status):
-        self.wapt.runstatus = status
-        msg = json.dumps(self.wapt.get_last_update_status())
-        self.wapt.events.send(msg)
+        """Update runstatus in database and send PROGRESS event"""
+        if self.wapt:
+            self.wapt.runstatus = status
+            msg = {}
+            msg['description'] = u'{}'.format(self)
+            msg['runstatus'] = status
+            if self.progress is not None:
+                msg['progress'] = self.progress
+            self.wapt.events.send_multipart(["TASKS",'PROGRESS',common.jsondump(msg)])
 
     def can_run(self,explain=False):
         """Return True if all the requirements for the task are met
@@ -642,6 +722,7 @@ class WaptTask(object):
             logs = self.logs,
             result = self.result,
             summary = self.summary,
+            progress = self.progress,
             description = u"{}".format(self),
             )
 
@@ -752,6 +833,27 @@ class WaptUpdateServerStatus(WaptTask):
     def __str__(self):
         return u"Informer le serveur de l'état du poste de travail"
 
+class WaptRegisterComputer(WaptTask):
+    """Send workstation status to server"""
+    def __init__(self):
+        super(WaptRegisterComputer,self).__init__()
+        self.priority = 10
+
+    def _run(self):
+        if self.wapt.wapt_server:
+            try:
+                self.result = self.wapt.register_computer()
+                self.summary = u"L'inventaire a été envoyé au serveur WAPT"
+            except Exception as e:
+                self.result = {}
+                self.summary = u"Erreur lors de l'envoi de l'inventaire vers le serveur : {}".format(e)
+        else:
+            self.result = {}
+            self.summary = u'WAPT Server is not defined'
+
+    def __str__(self):
+        return u"Informer le serveur de l'inventaire du poste de travail"
+
 class WaptLongTask(WaptTask):
     """Test action for debug purpose"""
     def __init__(self,duration=60,raise_error=False):
@@ -760,10 +862,14 @@ class WaptLongTask(WaptTask):
         self.raise_error = raise_error
 
     def _run(self):
+        self.progress = 0
         for i in range(self.duration):
             if self.wapt:
                 self.wapt.check_cancelled()
-            print u"Step {}".format(i)
+            #print u"Step {}".format(i)
+            self.update_status(u"Step {}".format(i))
+            self.progress = 100.0 /self.duration * i
+            #print "test {:.0f}%".format(self.progress)
             time.sleep(1)
         if self.raise_error:
             raise Exception('raising an error for Test WaptLongTask')
@@ -774,19 +880,56 @@ class WaptLongTask(WaptTask):
     def __str__(self):
         return u"Test long running task of {}s".format(self.duration)
 
+class WaptDownloadPackage(WaptTask):
+    def __init__(self,packagename,usecache=False):
+        super(WaptDownloadPackage,self).__init__()
+        self.packagename = packagename
+        self.usecache = usecache
+
+    def printhook(self,received,total,speed,url):
+        self.wapt.check_cancelled()
+        stat = u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total, speed)
+        self.progress = 100.0*received/total
+        self.update_status('Downloading %s : %s' % (url,stat))
+
+    def _run(self):
+        self.result = self.wapt.download_packages(self.packagename,usecache=self.usecache,printhook=self.printhook)
+
+    def as_dict(self):
+        d = WaptTask.as_dict(self)
+        d.update(
+            dict(
+                packagename = self.packagename,
+                usecache = self.usecache,
+                )
+            )
+        return d
+
+    def __str__(self):
+        return u"Téléchargement de {packagename} (tâche #{order})".format(classname=self.__class__.__name__,order=self.order,packagename=self.packagename)
+
+    def same_action(self,other):
+        return (self.__class__ == other.__class__) and (self.packagename == other.packagename)
+
+
 class WaptPackageInstall(WaptTask):
     def __init__(self,packagename,force=False):
         super(WaptPackageInstall,self).__init__()
         self.packagename = packagename
         self.force = force
+        self.package = None
 
     def _run(self):
         self.result = self.wapt.install(self.packagename,force = self.force)
+        if self.result['errors']:
+            raise Exception('Error during install of {}'.format(self.result['errors']))
 
     def as_dict(self):
         d = WaptTask.as_dict(self)
         d.update(
-            dict(packagename = self.packagename)
+            dict(
+                packagename = self.packagename,
+                force = self.force)
             )
         return d
 
@@ -891,7 +1034,8 @@ class WaptTaskManager(threading.Thread):
             try:
                 self.running_task = self.tasks_queue.get(timeout=10)
                 try:
-                    self.update_runstatus(u'Processing {description}'.format(description=self.running_task) )
+                    if not isinstance(self.running_task,WaptUpdateServerStatus):
+                        self.update_runstatus(u'Processing {description}'.format(description=self.running_task) )
                     self.broadcast_tasks_status('START',self.running_task)
                     try:
                         self.running_task.run()
@@ -902,12 +1046,12 @@ class WaptTaskManager(threading.Thread):
                         if self.running_task:
                             self.running_task.logs.append(u"{}".format(e))
                             self.tasks_cancelled.append(self.running_task)
-                            self.broadcast_tasks_status('CANCEL',self.running_task)
+                            self.broadcast_tasks_status('CANCEL',self.running_task.as_dict())
                     except Exception as e:
                         if self.running_task:
                             self.running_task.logs.append(u"{}".format(e))
                             self.tasks_error.append(self.running_task)
-                            self.broadcast_tasks_status('ERROR',self.running_task)
+                            self.broadcast_tasks_status('ERROR',self.running_task.as_dict())
                         logger.critical(e)
                 finally:
                     self.tasks_queue.task_done()
@@ -923,7 +1067,6 @@ class WaptTaskManager(threading.Thread):
                         del self.tasks_done[:len(self.tasks_done)-MAX_HISTORY]
                     if len(self.tasks_error)>MAX_HISTORY:
                         del self.tasks_error[:len(self.tasks_error)-MAX_HISTORY]
-
 
             except Queue.Empty:
                 self.update_runstatus('')
@@ -943,14 +1086,37 @@ class WaptTaskManager(threading.Thread):
         except Exception as e:
             return u"Error : tasks list locked : {}".format(e)
 
+
+    def cancel_running_task(self):
+        """Cancel running task. Returns cancelled task"""
+        try:
+            with self.status_lock:
+                if self.running_task:
+                    try:
+                        cancelled = self.running_task
+                        self.tasks_error.append(self.running_task)
+                        try:
+                            self.running_task.kill()
+                        except:
+                            pass
+                    finally:
+                        self.running_task = None
+                    self.tasks_cancelled.append(cancelled)
+                    self.broadcast_tasks_status('CANCEL',[cancelled])
+                    return cancelled
+                else:
+                    return None
+
+        except Exception as e:
+            return u"Error : tasks list locked : {}".format(e)
+
     def cancel_all_tasks(self):
-        """Returns list of pending, error, done tasks, and current running one"""
+        """Cancel running and pending tasks. Returns list of cancelled tasks"""
         try:
             with self.status_lock:
                 cancelled = []
                 while not self.tasks_queue.empty():
                      cancelled.append(self.tasks_queue.get())
-                self.tasks_cancelled.extend(cancelled)
                 if self.running_task:
                     try:
                         cancelled.append(self.running_task)
@@ -961,14 +1127,10 @@ class WaptTaskManager(threading.Thread):
                             pass
                     finally:
                         self.running_task = None
+                self.tasks_cancelled.extend(cancelled)
                 self.broadcast_tasks_status('CANCEL',cancelled)
-                return dict(
-                    running=self.running_task and self.running_task.as_dict(),
-                    pending=[task for task in sorted(self.tasks_queue.queue)],
-                    done = self.tasks_done[:],
-                    cancelled = self.tasks_cancelled[:],
-                    errors = self.tasks_error[:],
-                    )
+                return cancelled
+
         except Exception as e:
             return u"Error : tasks list locked : {}".format(e)
 

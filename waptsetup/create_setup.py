@@ -105,7 +105,7 @@ if os.path.exists(checkout_dir):
 
 print "checkout du projet"
 
-print subprocess.check_output('svn co --username=%s --password=%s --trust-server-cert --non-interactive %s %s' % (svn_username, svn_password,svnroot,checkout_dir))
+print subprocess.check_output('svn co --username=%s --password=%s --trust-server-cert --non-interactive %s %s' % (svn_username, svn_password,svnroot,checkout_dir),shell=True)
 
 rev =  client.info (checkout_dir).get("revision").number
 

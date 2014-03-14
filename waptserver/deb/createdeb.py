@@ -25,7 +25,15 @@ import os,glob,sys,stat
 import shutil
 import fileinput
 import subprocess
-import platform
+import platform, errno
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
 
 def replaceAll(file,searchExp,replaceExp):
     for line in fileinput.input(file, inplace=1):
@@ -105,14 +113,34 @@ try:
 except Exception as e:
     print 'erreur: \n%s'%e
     exit(0)
+
+print "copy startup script /etc/init.d/waptserver"
+try:
+    mkdir_p('./builddir/etc/init.d/')
+    shutil.copyfile('../scripts/waptserver-init','./builddir/etc/init.d/waptserver')
+    subprocess.check_output('chmod 755 ./builddir/etc/init.d/waptserver',shell=True)
+    subprocess.check_output('chown root:root ./builddir/etc/init.d/waptserver',shell=True)
+except Exception as e:
+    print 'erreur: \n%s'%e
+    exit(0)
+
+print "copy logrotate script /etc/logrotate.d/waptserver"
+try:
+    mkdir_p('./builddir/etc/logrotate.d/')
+    shutil.copyfile('../scripts/waptserver-logrotate','./builddir/etc/logrotate.d/waptserver')
+    subprocess.check_output('chown root:root ./builddir/etc/logrotate.d/waptserver',shell=True)
+except Exception as e:
+    print 'erreur: \n%s'%e
+    exit(0)
+
 print 'inscription de la version dans le fichier de control'
 replaceAll(control_file,'0.0.7',wapt_version + '-' + rev)
 
-print 'création du paquet Deb'
+
 os.chmod('./builddir/DEBIAN/postinst',stat.S_IRWXU| stat.S_IXGRP | stat.S_IRGRP | stat.S_IROTH | stat.S_IXOTH)
 os.chmod('./builddir/DEBIAN/preinst',stat.S_IRWXU| stat.S_IXGRP | stat.S_IRGRP | stat.S_IROTH | stat.S_IXOTH)
 
-
+print 'création du paquet Deb'
 dpkg_command = 'dpkg-deb --build builddir tis-waptserver-%s-%s.deb'% (wapt_version ,rev)
 os.system(dpkg_command)
 shutil.rmtree("builddir")

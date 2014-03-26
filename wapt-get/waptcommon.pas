@@ -24,7 +24,7 @@ unit waptcommon;
 {$mode objfpc}{$H+}
 interface
   uses
-     Classes, SysUtils,
+     Classes, SysUtils, Windows,
      DB,sqldb,sqlite3conn,SuperObject,syncobjs;
 
   const
@@ -59,9 +59,11 @@ interface
   function GetDNSServer:AnsiString;
   function GetDNSDomain:AnsiString;
 
-  function WAPTServerJsonGet(action: String;args:Array of const; enableProxy:Boolean= False): ISuperObject;
-  function WAPTServerJsonPost(action: String;data: ISuperObject; enableProxy:Boolean= False): ISuperObject;
-  function WAPTLocalJsonGet(action:String):ISuperObject;
+  function WAPTServerJsonGet(action: String;args:Array of const; enableProxy:Boolean= False;user:AnsiString='';password:AnsiString=''): ISuperObject;
+  function WAPTServerJsonPost(action: String;args:Array of const;data: ISuperObject; enableProxy:Boolean= False;user:AnsiString='';password:AnsiString=''): ISuperObject;
+  function WAPTLocalJsonGet(action:String;user:AnsiString='';password:AnsiString='';timeout:integer=1000):ISuperObject;
+
+  function RunAsAdmin(const Handle: Hwnd; aFile : Ansistring; Params: Ansistring): Boolean;
 
 Type
   TFormatHook = Function(Dataset:TDataset;Data,FN:Utf8String):UTF8String of object;
@@ -89,13 +91,34 @@ Type
     function QueryToHTMLtable(SQL: String; FormatHook: TFormatHook=nil): String;
   end;
 
-
+var
+  privateKeyPassword: string = '';
+  waptServerUser: string = 'admin';
+  waptServerPassword: string = '';
 
 implementation
 
-uses FileUtil,soutils,tiscommon,Windows,Variants,winsock,IdDNSResolver,IdExceptionCore,JwaIpHlpApi,JwaIpTypes,
+uses FileUtil,soutils,tiscommon,Variants,winsock,ShellApi,IdDNSResolver,IdExceptionCore,JwaIpHlpApi,JwaIpTypes,
     NetworkAdapterInfo,tisinifiles,registry,tisstrings;
 
+
+function RunAsAdmin(const Handle: Hwnd; aFile : Ansistring; Params: Ansistring): Boolean;
+var
+  sei:  TSHELLEXECUTEINFO;
+begin
+  FillChar(sei, SizeOf(sei), 0);
+  With sei do begin
+     cbSize := SizeOf(sei);
+     Wnd := Handle;
+     //fMask := SEE_MASK_FLAG_DDEWAIT or SEE_MASK_FLAG_NO_UI;
+     fMask := SEE_MASK_FLAG_DDEWAIT;
+     lpVerb := 'runAs';
+     lpFile := PAnsiChar(aFile);
+     lpParameters := PAnsiChar(Params);
+     nShow := SW_SHOWNORMAL;
+  end;
+  Result := ShellExecuteExA(@sei);
+end;
 
 Function GetDNSServers:TDynStringArray;
 var
@@ -162,7 +185,7 @@ begin
   end;
 end;
 
-function WAPTServerJsonGet(action: String;args:Array of const;  enableProxy:Boolean= False): ISuperObject;
+function WAPTServerJsonGet(action: String;args:Array of const; enableProxy:Boolean=False;user:AnsiString='';password:AnsiString=''): ISuperObject;
 var
   strresult : String;
 begin
@@ -172,11 +195,13 @@ begin
     action := '/'+action;
   if length(args)>0 then
     action := format(action,args);
-  strresult:=httpGetString(GetWaptServerURL+action, enableProxy);
+  strresult:=httpGetString(GetWaptServerURL+action, enableProxy,4000,60000,60000,user,password);
   Result := SO(strresult);
 end;
 
-function WAPTServerJsonPost(action: String;data: ISuperObject; enableProxy:Boolean= False):ISuperObject;
+function WAPTServerJsonPost(action: String;args:Array of const;
+    data: ISuperObject; enableProxy:Boolean= False;
+    user:AnsiString='';password:AnsiString=''):ISuperObject;
 var
   res:String;
 begin
@@ -184,17 +209,19 @@ begin
     raise Exception.Create('wapt_server is not defined in your '+AppIniFilename+' ini file');
   if StrLeft(action,1)<>'/' then
     action := '/'+action;
-  res := httpPostData('wapt', GetWaptServerURL+action, data.AsJson, enableProxy);
+  if length(args)>0 then
+    action := format(action,args);
+  res := httpPostData('wapt', GetWaptServerURL+action, data.AsJson, enableProxy,4000,60000,60000,user,password);
   result := SO(res);
 end;
 
-function WAPTLocalJsonGet(action: String): ISuperObject;
+function WAPTLocalJsonGet(action: String;user:AnsiString='';password:AnsiString='';timeout:integer=1000): ISuperObject;
 var
   strresult : String;
 begin
   if StrLeft(action,1)<>'/' then
     action := '/'+action;
-  strresult:=httpGetString(GetWaptLocalURL+action);
+  strresult := httpGetString(GetWaptLocalURL+action,False,timeout,60000,60000,user,password);
   Result := SO(strresult);
 end;
 

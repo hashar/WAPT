@@ -20,6 +20,8 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
+__version__="0.8.14"
+
 import os,sys
 wapt_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'..'))
 sys.path.append(os.path.join(wapt_root_dir))
@@ -55,7 +57,6 @@ from rocket import Rocket
 
 from waptpackage import update_packages,PackageEntry
 
-__version__="0.8.10"
 
 config = ConfigParser.RawConfigParser()
 
@@ -257,13 +258,14 @@ def delete_host(uuid=""):
     else:
         return "ok"
 
-@app.route('/add_host',methods=['POST'])
+@app.route('/add_host',methods=['POST','GET'])
 def add_host():
     data = json.loads(request.data)
     if data:
         return json.dumps(update_data(data))
     else:
         raise Exception("No data retrieved")
+
 def update_data(data):
     data['last_query_date'] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     host = get_host_data(data["uuid"],delete_id=False)
@@ -416,6 +418,7 @@ def upload_waptsetup():
 
 
 @app.route('/waptupgrade_host/<string:ip>')
+@requires_auth
 def waptupgrade_host(ip):
     try:
         result = {}
@@ -427,13 +430,186 @@ def waptupgrade_host(ip):
             if ip and waptservice_port:
                 logger.info( "Upgrading %s..." % ip)
                 try:
-                    data = json.loads(requests.get("http://%s:%d/waptupgrade.json" % ( ip, waptservice_port),proxies=None))
-                    if "OK" in r.text   .upper():
+                    httpreq = requests.get("http://%s:%d/waptupgrade.json" % ( ip, waptservice_port),proxies=None)
+                    httpreq.raise_for_status()
+                    result = {'status' : 'OK', 'message': u"%s" % httpreq.text }
+                except Exception as e:
+                    logger.warning(u'%s'%e)
+                    r = requests.get("http://%s:%d/waptupgrade" % ( ip, waptservice_port),proxies=None)
+                    if "OK" in r.text.upper():
                         result = {  'status' : 'OK', 'message': u"%s" % r.text }
                     else:
                         result = {  'status' : 'ERROR', 'message': u"%s" % r.text }
-                except:
-                    r = requests.get("http://%s:%d/waptupgrade" % ( ip, waptservice_port),proxies=None)
+
+            else:
+                raise Exception(u"Le port de waptservice n'est pas défini")
+
+        except Exception as e:
+            raise  Exception("Impossible de joindre le waptservice: %s" % e)
+
+    except Exception, e:
+            result = { 'status' : 'ERROR', 'message': u"%s" % e  }
+    return  Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
+
+@app.route('/install_package')
+@app.route('/install_package.json')
+@requires_auth
+def install_package():
+    try:
+        result = {}
+        try:
+            package = request.args['package']
+            ip = request.args['host']
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect((ip,waptservice_port))
+            s.close
+            if ip and waptservice_port:
+                logger.info( "installing %s on %s ..." % (package,ip))
+                data = json.loads(requests.get("http://%s:%d/install.json?package=%s" % ( ip, waptservice_port,package),proxies=None).text)
+                result = dict(message=data,status='OK')
+            else:
+                raise Exception(u"Le port de waptservice n'est pas défini")
+
+        except Exception as e:
+            raise Exception("Impossible de joindre le web service: %s" % e)
+
+    except Exception, e:
+            result = { 'status' : 'ERROR', 'message': u"%s" % e  }
+    return  Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
+
+
+@app.route('/remove_package')
+@app.route('/remove_package.json')
+@requires_auth
+def remove_package():
+    try:
+        result = {}
+        try:
+            package = request.args['package']
+            ip = request.args['host']
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect((ip,waptservice_port))
+            s.close
+            if ip and waptservice_port:
+                logger.info( "removing %s on %s ..." % (package,ip))
+                httpreq = requests.get("http://%s:%d/remove.json?package=%s" % ( ip, waptservice_port,package),proxies=None)
+                httpreq.raise_for_status()
+                data = json.loads(httpreq.text)
+                result = dict(message=data,status='OK')
+            else:
+                raise Exception(u"Le port de waptservice n'est pas défini")
+
+        except Exception as e:
+            raise Exception("Impossible de joindre le waptservice du poste: %s" % e)
+
+    except Exception, e:
+            result = { 'status' : 'ERROR', 'message': u"%s" % e  }
+    return  Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
+
+@app.route('/host_tasks')
+@app.route('/host_tasks.json')
+@requires_auth
+def host_tasks():
+    try:
+        result = {}
+        try:
+            ip = request.args['host']
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect((ip,waptservice_port))
+            s.close
+            if ip and waptservice_port:
+                data = json.loads(requests.get("http://%s:%d/tasks.json" % ( ip, waptservice_port),proxies=None).text)
+                result = dict(message=data,status='OK')
+            else:
+                raise Exception(u"Le port de waptservice n'est pas défini")
+
+        except Exception as e:
+            raise Exception("Impossible de joindre le web service: %s" % e)
+
+    except Exception, e:
+            result = { 'status' : 'ERROR', 'message': u"%s" % e  }
+    return  Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
+
+@app.route('/host_taskkill')
+@app.route('/host_taskkill.json')
+@requires_auth
+def host_taskkill():
+    try:
+        result = {}
+        try:
+            ip = request.args['host']
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect((ip,waptservice_port))
+            s.close
+            if ip and waptservice_port:
+                data = json.loads(requests.get("http://%s:%d/cancel_running_task.json" % ( ip, waptservice_port),proxies=None).text)
+                result = dict(message=data,status='OK')
+            else:
+                raise Exception(u"Le port de waptservice n'est pas défini")
+
+        except Exception as e:
+            raise Exception("Impossible de joindre le web service: %s" % e)
+
+    except Exception, e:
+            result = { 'status' : 'ERROR', 'message': u"%s" % e  }
+    return  Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
+
+
+
+@app.route('/hosts_by_group/<string:name>')
+@requires_auth
+def get_hosts_by_group(name=""):
+    try:
+        list_hosts  =  []
+        os.chdir(wapt_folder + '-host')
+        hosts = [f for f in os.listdir('.') if os.path.isfile(f) and f.endswith('.wapt')]
+        package = PackageEntry()
+        for h in hosts:
+            package.load_control_from_wapt(h)
+            if name in package.depends.split(','):
+                list_hosts.append({"computer_fqdn":package.package})
+
+        return  Response(response=json.dumps(list_hosts),
+                         status=200,
+                         mimetype="application/json")
+    except:
+        e = sys.exc_info()
+        return str(e)
+    return "Unsupported method"
+
+@app.route('/upgrade_host/<string:ip>')
+@requires_auth
+def upgrade_host(ip):
+    """Proxy the wapt upgrade action to the client"""
+    try:
+        result = {}
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect((ip,waptservice_port))
+            s.close
+            if ip and waptservice_port:
+                logger.info( "Upgrading %s..." % ip)
+                try:
+                    result = json.loads(requests.get("http://%s:%d/upgrade.json" % ( ip, waptservice_port),proxies=None).text)
+                except Exception as e:
+                    # try the old behaviour for wapt client < 0.8.10
+                    logger.warning(u"%s"%e)
+                    r = requests.get("http://%s:%d/upgrade" % ( ip, waptservice_port),proxies=None)
                     if "OK" in r.text.upper():
                         result = {  'status' : 'OK', 'message': u"%s" % r.text }
                     else:
@@ -447,57 +623,9 @@ def waptupgrade_host(ip):
 
     except Exception, e:
             result = { 'status' : 'ERROR', 'message': u"%s" % e  }
-    return json.dumps(result)
-
-@app.route('/hosts_by_group/<string:name>')
-def get_hosts_by_group(name=""):
-    try:
-        list_hosts  =  []
-        os.chdir(wapt_folder + '-host')
-        hosts = [f for f in os.listdir('.') if os.path.isfile(f) and f.endswith('.wapt')]
-        package = PackageEntry()
-        for h in hosts:
-            package.load_control_from_wapt(h)
-
-            if name in package.depends.split(','):
-                list_hosts.append({"computer_fqdn":package.package})
-
-        return  Response(response=json.dumps(list_hosts),
+    return  Response(response=json.dumps(result),
                          status=200,
                          mimetype="application/json")
-    except:
-        e = sys.exc_info()
-        return str(e)
-    return "Unsupported method"
-
-@app.route('/upgrade_host/<string:ip>')
-def upgrade_host(ip):
-    try:
-        result = {}
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1)
-            s.connect((ip,waptservice_port))
-            s.close
-            if ip and waptservice_port:
-                logger.info( "Upgrading %s..." % ip)
-                r = requests.get("http://%s:%d/upgrade" % ( ip, waptservice_port),proxies=None)
-                if "OK" in r.text.upper():
-                    result = {  'status' : 'OK', 'message': u"%s" % r.text }
-                else:
-                    result = {  'status' : 'ERROR', 'message': u"%s" % r.text }
-
-            else:
-                raise Exception(u"Le port de waptservice n'est pas défini")
-
-        except Exception as e:
-            raise  Exception("Impossible de joindre le web service: %s" % e)
-
-    except Exception, e:
-            result = { 'status' : 'ERROR', 'message': u"%s" % e  }
-    print result
-    return json.dumps(result)
-
 
 def install_wapt(computer_name,authentication_file):
     cmd = '/usr/bin/smbclient -G -E -A %s  //%s/IPC$ -c listconnect ' % (authentication_file, computer_name)
@@ -530,6 +658,7 @@ def install_wapt(computer_name,authentication_file):
     return subprocess.check_output(cmd,shell=True)
 
 @app.route('/deploy_wapt',methods=['POST'])
+@requires_auth
 def deploy_wapt():
     try:
         result = {}
@@ -569,8 +698,10 @@ def deploy_wapt():
     except Exception, e:
         result = { 'status' : 'ERROR', 'message': u"%s" % e  }
 
+    return  Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
 
-    return json.dumps(result)
 
 @app.route('/login',methods=['POST'])
 def login():
@@ -598,6 +729,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 @app.route('/delete_package/<string:filename>')
+@requires_auth
 def delete_package(filename=""):
     file = os.path.join(wapt_folder,filename)
     if os.path.exists(file):
@@ -672,6 +804,7 @@ if __name__ == "__main__":
         app.run(host='0.0.0.0',port=30880,debug=True)
     else:
         port = 8080
+        logger.setLevel(logging.DEBUG)
         server = Rocket(('0.0.0.0', port), 'wsgi', {"wsgi_app":app})
         try:
             logger.info("starting waptserver")

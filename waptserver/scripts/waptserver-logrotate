@@ -1,0 +1,12 @@
+/var/log/waptserver.log {
+	daily
+    create 0640 wapt www-data
+	missingok
+	rotate 7
+	postrotate
+		/etc/init.d/waptserver restart > /dev/null
+	endscript
+	compress
+	notifempty
+}
+

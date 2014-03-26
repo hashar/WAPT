@@ -16,8 +16,8 @@
     </i18n>
     <VersionInfo>
       <UseVersionInfo Value="True"/>
-      <MinorVersionNr Value="2"/>
-      <RevisionNr Value="7"/>
+      <MinorVersionNr Value="3"/>
+      <RevisionNr Value="6"/>
       <StringTable CompanyName="Tranquil IT Systems" FileDescription="WAPT Tray Icon" ProductName="WAPT" ProductVersion=""/>
     </VersionInfo>
     <BuildModes Count="1">
@@ -35,22 +35,22 @@
     </RunParams>
     <RequiredPackages Count="9">
       <Item1>
-        <PackageName Value="pl_graphics32"/>
+        <PackageName Value="pl_cindy"/>
       </Item1>
       <Item2>
-        <PackageName Value="pl_lazsolutions"/>
+        <PackageName Value="pl_graphics32"/>
       </Item2>
       <Item3>
-        <PackageName Value="pltis_delphizmq"/>
+        <PackageName Value="pl_lazsolutions"/>
       </Item3>
       <Item4>
-        <PackageName Value="pltis_utils"/>
+        <PackageName Value="pltis_delphizmq"/>
       </Item4>
       <Item5>
-        <PackageName Value="pl_luicontrols"/>
+        <PackageName Value="pltis_utils"/>
       </Item5>
       <Item6>
-        <PackageName Value="pl_indycomp"/>
+        <PackageName Value="pl_luicontrols"/>
       </Item6>
       <Item7>
         <PackageName Value="pltis_superobject"/>
@@ -119,7 +119,7 @@
     </Other>
   </CompilerOptions>
   <Debugging>
-    <Exceptions Count="3">
+    <Exceptions Count="4">
       <Item1>
         <Name Value="EAbort"/>
       </Item1>
@@ -129,6 +129,9 @@
       <Item3>
         <Name Value="EFOpenError"/>
       </Item3>
+      <Item4>
+        <Name Value="HTTPException"/>
+      </Item4>
     </Exceptions>
   </Debugging>
 </CONFIG>

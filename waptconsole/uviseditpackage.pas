@@ -132,9 +132,6 @@ function EditGroup(group: string; advancedMode: boolean): ISuperObject;
 
 var
   VisEditPackage: TVisEditPackage;
-  privateKeyPassword: string = '';
-  waptServerUser: string = 'admin';
-  waptServerPassword: string = '';
 
 implementation
 
@@ -403,6 +400,7 @@ procedure TVisEditPackage.ActEditRemoveExecute(Sender: TObject);
 begin
   GridDepends.DeleteSelectedNodes;
   Depends := Depends;
+  GridDependsUpdated := True;
 end;
 
 procedure TVisEditPackage.ActEditSavePackageExecute(Sender: TObject);
@@ -427,7 +425,7 @@ begin
       PackageEdited.S['description'] := UTF8Decode(EdDescription.Text);
       PackageEdited.S['section'] := EdSection.Text;
       PackageEdited.S['depends'] := Depends;
-      DMPython.PythonEng.ExecString('p = PackageEntry()');
+      DMPython.PythonEng.ExecString('p = waptpackage.PackageEntry()');
       DMPython.PythonEng.ExecString(
         format('p.load_control_from_dict(json.loads(r''%s''))', [PackageEdited.AsJson]));
       DMPython.PythonEng.ExecString(
@@ -474,11 +472,11 @@ begin
   ActEditSavePackage.Execute;
   if not FileExists(GetWaptPrivateKey) then
   begin
-    ShowMessage('La clé privé n''existe pas: ' + GetWaptPrivateKey);
+    ShowMessage('La clé privée n''existe pas: ' + GetWaptPrivateKey);
     exit;
   end;
   isEncrypt := StrToBool(DMPython.RunJSON(
-    format('waptdevutils.is_encrypt_private_key(r"%s".decode(''utf8''))', [GetWaptPrivateKey])).AsString);
+    format('common.private_key_has_password(r"%s".decode(''utf8''))', [GetWaptPrivateKey])).AsString);
   if (privateKeyPassword = '') and (isEncrypt) then
   begin
     with TvisPrivateKeyAuth.Create(Self) do
@@ -489,7 +487,7 @@ begin
           begin
             privateKeyPassword := edPasswordKey.Text;
             if StrToBool(DMPython.RunJSON(
-              format('waptdevutils.is_match_password(r"%s","%s")',
+              format('common.check_key_password(r"%s","%s")',
               [GetWaptPrivateKey, privateKeyPassword])).AsString) then
               done := True;
           end

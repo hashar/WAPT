@@ -1,7 +1,7 @@
 object VisWaptGUI: TVisWaptGUI
-  Left = 418
+  Left = 246
   Height = 695
-  Top = 217
+  Top = 167
   Width = 1072
   Caption = 'Console WAPT'
   ClientHeight = 676
@@ -166,78 +166,71 @@ object VisWaptGUI: TVisWaptGUI
             Text = 'Status'
           end        
           item
-            MaxWidth = 100
-            Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coFixed, coAllowFocus]
-            Position = 1
-            Text = 'Client status'
-            PropertyName = 'wapt_client.status'
-          end        
-          item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coFixed, coAllowFocus]
-            Position = 2
+            Position = 1
             Text = 'Machine'
             Width = 100
             PropertyName = 'host.computer_fqdn'
           end        
           item
             MaxWidth = 400
-            Position = 3
+            Position = 2
             Text = 'Description'
             Width = 100
             PropertyName = 'host.description'
           end        
           item
             MaxWidth = 400
-            Position = 4
+            Position = 3
             Text = 'Fabricant'
             Width = 100
             PropertyName = 'host.system_manufacturer'
           end        
           item
             MaxWidth = 400
-            Position = 5
+            Position = 4
             Text = 'Modèle'
             Width = 100
             PropertyName = 'host.system_productname'
           end        
           item
             MaxWidth = 400
-            Position = 6
+            Position = 5
             Text = 'Numéro de série'
             Width = 100
             PropertyName = 'dmi.Chassis_Information.Serial_Number'
           end        
           item
             MaxWidth = 400
-            Position = 7
+            Position = 6
             Text = 'Dernière MAJ'
             Width = 100
             PropertyName = 'last_query_date'
           end        
           item
             MaxWidth = 400
-            Position = 8
+            Position = 7
             Text = 'Adresses Mac'
             Width = 100
             PropertyName = 'host.mac'
           end        
           item
             MaxWidth = 400
-            Position = 9
+            Position = 8
             Text = 'Adresses Ips'
             Width = 100
             PropertyName = 'host.connected_ips'
           end        
           item
-            Position = 10
+            Position = 9
             Text = 'Version WAPT'
             Width = 80
             PropertyName = 'wapt.wapt-exe-version'
           end        
           item
             MaxWidth = 400
-            Position = 11
+            Position = 10
             Text = 'uuid'
             Width = 100
             PropertyName = 'uuid'
@@ -245,7 +238,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 12
+            Position = 11
             Text = 'md5sum'
             Width = 100
             PropertyName = 'md5sum'
@@ -253,7 +246,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 13
+            Position = 12
             Text = 'purchase_order'
             Width = 100
             PropertyName = 'purchase_order'
@@ -261,7 +254,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 14
+            Position = 13
             Text = 'purchase_date'
             Width = 100
             PropertyName = 'purchase_date'
@@ -269,7 +262,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 15
+            Position = 14
             Text = 'groups'
             Width = 100
             PropertyName = 'groups'
@@ -277,7 +270,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 400
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 16
+            Position = 15
             Text = 'attributes'
             Width = 100
             PropertyName = 'attributes'
@@ -285,7 +278,7 @@ object VisWaptGUI: TVisWaptGUI
           item
             MaxWidth = 100
             Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus]
-            Position = 17
+            Position = 16
             Text = 'Status poste'
             PropertyName = 'update_status'
           end>
@@ -305,6 +298,7 @@ object VisWaptGUI: TVisWaptGUI
         WantTabs = True
         OnChange = GridHostsChange
         OnColumnDblClick = GridHostsColumnDblClick
+        OnCompareNodes = GridHostsCompareNodes
         OnDragOver = GridHostsDragOver
         OnDragDrop = GridHostsDragDrop
         OnGetImageIndexEx = GridHostsGetImageIndexEx
@@ -387,6 +381,7 @@ object VisWaptGUI: TVisWaptGUI
             Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible]
             Header.Style = hsFlatButtons
             Images = ImageList1
+            PopupMenu = PopupHostPackages
             TabOrder = 0
             TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
             TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toNodeHeightResize, toNodeHeightDblClickResize, toEditOnClick]
@@ -1551,6 +1546,7 @@ object VisWaptGUI: TVisWaptGUI
           'import sys'
           'import os'
           'import logging'
+          'import common'
           'from common import jsondump'
           'from common import Wapt'
           ''
@@ -1948,6 +1944,15 @@ object VisWaptGUI: TVisWaptGUI
       Caption = 'Déployer Wapt sur des postes'
       OnExecute = ActDeployWaptExecute
     end
+    object ActPackageRemove: TAction
+      Category = 'Host'
+      Caption = 'Désinstaller le package'
+      OnExecute = ActPackageRemoveExecute
+    end
+    object ActPackageInstall: TAction
+      Category = 'Host'
+      Caption = 'Installer un package'
+    end
   end
   object PopupMenuPackages: TPopupMenu
     left = 148
@@ -2213,8 +2218,8 @@ object VisWaptGUI: TVisWaptGUI
     }
   end
   object PopupMenuGroups: TPopupMenu
-    left = 304
-    top = 160
+    left = 148
+    top = 396
     object MenuItem36: TMenuItem
       Action = ActPackageGroupAdd
     end
@@ -2223,6 +2228,17 @@ object VisWaptGUI: TVisWaptGUI
     end
     object MenuItem40: TMenuItem
       Action = ActEditGroup
+    end
+  end
+  object PopupHostPackages: TPopupMenu
+    left = 256
+    top = 396
+    object MenuItem20: TMenuItem
+      Action = ActPackageInstall
+      OnClick = MenuItem20Click
+    end
+    object MenuItem19: TMenuItem
+      Action = ActPackageRemove
     end
   end
 end

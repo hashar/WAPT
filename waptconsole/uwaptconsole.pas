@@ -856,9 +856,10 @@ end;
 
 procedure TVisWaptGUI.ActCreateWaptSetupExecute(Sender: TObject);
 var
-  params, waptsetupPath, Result: string;
+  params, waptsetupPath: string;
   done: boolean;
   ini: TIniFile;
+  SORes:ISuperObject;
 begin
   with TVisCreateWaptSetup.Create(self) do
     try
@@ -889,35 +890,34 @@ begin
                 try
                   ProgressTitle('Création en cours');
                   Application.ProcessMessages;
-                  try
-                    waptsetupPath :=
-                      DMPython.RunJSON(
-                      format('waptdevutils.create_wapt_setup(mywapt,%s)', [params]),
-                      jsonlog).AsString;
-                    if FileExists(waptsetupPath) then
+                  waptsetupPath :=
+                    DMPython.RunJSON(
+                    format('waptdevutils.create_wapt_setup(mywapt,%s)', [params]),
+                    jsonlog).AsString;
+                  if FileExists(waptsetupPath) then
+                  begin
+                    ProgressStep(1, 2);
+                    ProgressTitle('Dépôt sur le serveur WAPT en cours');
+                    SORes :=
+                      DMPython.RunJSON(format(
+                      'waptdevutils.upload_wapt_setup(mywapt,r"%s","%s","%s")',
+                      [waptsetupPath, waptServerUser, waptServerPassword]));
+                    if SORes.S['status'] = 'OK' then
                     begin
-                      ProgressStep(1, 2);
-                      ProgressTitle('Dépôt sur le serveur WAPT en cours');
-                      Result :=
-                        DMPython.RunJSON(format(
-                        'waptdevutils.upload_wapt_setup(mywapt,r"%s","%s","%s")',
-                        [waptsetupPath, waptServerUser, waptServerPassword])).AsString;
-                      if Result = 'ok' then
-                        ShowMessage('Waptsetup envoyé avec succès')
-                      else
-                        ShowMessage('Erreur lors de l''envoie de waptsetup: ' + Result);
+                      ShowMessage('Waptsetup envoyé avec succès');
                       done := True;
-                    end;
-
-                  except
-                    ShowMessage('Création annulé');
+                    end
+                    else
+                      ShowMessage('Erreur lors de l''envoi de waptsetup: ' + SORes.S['message']);
                   end;
                 finally
                   Free;
                 end;
               if done then
+              begin
                 Screen.Cursor := crDefault;
-              ShowMessage('waptsetup.exe créé avec succès: ' + waptsetupPath);
+                ShowMessage('waptsetup.exe créé avec succès: ' + waptsetupPath);
+              end;
             except
               on e: Exception do
               begin
@@ -1081,7 +1081,7 @@ begin
       for package in sel do
       begin
         res :=  WAPTServerJsonGet(
-          '/remove_package.json?host=%s&package=%s',[GridHosts.FocusedRow.S['host.connected_ips'],package.S['package']],
+          '/remove_package.json?host=%s&package=%s&uuid=%s',[GridHosts.FocusedRow.S['host.connected_ips'],package.S['package'],GridHosts.FocusedRow.S['uuid']],
           WaptUseLocalConnectionProxy,
           waptServerUser,
           waptServerPassword);

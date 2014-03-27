@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.8.16"
+__version__ = "0.8.21"
 import os
 import re
 import logging
@@ -3201,9 +3201,15 @@ class Wapt(object):
                 try:
                     def report(received,total,speed,url):
                         self.check_cancelled()
-                        stat = u'%s : %i / %i (%.0f%%) (%.0f KB/s)\r' % (url,received,total,100.0*received/total, speed)
-                        print stat,
-                        self.runstatus='Downloading %s : %s' % (entry.package,stat)
+                        try:
+                            if total>1:
+                                stat = u'%s : %i / %i (%.0f%%) (%.0f KB/s)\r' % (url,received,total,100.0*received/total, speed)
+                                print stat,
+                            else:
+                                stat = ''
+                            self.runstatus='Downloading %s : %s' % (entry.package,stat)
+                        except:
+                            self.runstatus='Downloading %s' % (entry.package,)
 
                     if not printhook:
                         printhook = report
@@ -3212,7 +3218,7 @@ class Wapt(object):
                     setuphelpers.wget( download_url, self.package_cache_dir,proxies=self.proxies,printhook = printhook)
                     downloaded.append(fullpackagepath)
                     self.runstatus=''
-                except BaseException as e:
+                except Exception as e:
                     self.runstatus=''
                     if os.path.isfile(fullpackagepath):
                         os.remove(fullpackagepath)

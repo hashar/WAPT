@@ -19,7 +19,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__ = "0.8.16"
+__version__ = "0.8.21"
 
 import time
 import sys
@@ -54,6 +54,8 @@ from werkzeug.utils import html
 import gc
 import datetime
 import dateutil.parser
+
+import copy
 
 import win32security
 
@@ -503,7 +505,7 @@ def get_checkupgrades():
 
 @app.route('/waptupgrade')
 @app.route('/waptupgrade.json')
-@requires_auth
+@check_ip_source
 def waptclientupgrade():
     """Launch an external 'wapt-get waptupgrade' process to upgrade local copy of wapt client"""
     data = task_manager.add_task(WaptClientUpgrade()).as_dict()
@@ -664,7 +666,7 @@ def package_download():
 
 @app.route('/remove', methods=['GET'])
 @app.route('/remove.json', methods=['GET'])
-@requires_auth
+@check_ip_source
 def remove():
     package = request.args.get('package')
     logger.info("remove package %s" % package)
@@ -894,6 +896,9 @@ class WaptTask(object):
 
     def kill(self):
         """if task has been started, kill the task (ex: kill the external processes"""
+        self.summary = u'Cancelled'
+        self.logs.append(u'Cancelled')
+
         if self.external_pids:
             for pid in self.external_pids:
                 logger.debug('Killing process with pid {}'.format(pid))
@@ -910,7 +915,7 @@ class WaptTask(object):
         return u"{classname} {id} created {create_date} started:{start_date} finished:{finish_date} ".format(**self.as_dict())
 
     def as_dict(self):
-        return dict(
+        return copy.deepcopy(dict(
             id=self.id,
             classname=self.__class__.__name__,
             priority = self.priority,
@@ -918,13 +923,13 @@ class WaptTask(object):
             create_date = self.create_date and self.create_date.isoformat(),
             start_date = self.start_date and self.start_date.isoformat(),
             finish_date = self.finish_date and self.finish_date.isoformat(),
-            logs = self.logs,
-            result = self.result,
+            logs = '\n'.join(self.logs),
+            result = common.jsondump(self.result),
             summary = self.summary,
             progress = self.progress,
             description = u"{}".format(self),
             pidlist = u"{}".format(self.external_pids),
-            )
+            ))
 
     def as_json(self):
         return json.dumps(self.as_dict(),indent=True)
@@ -1150,8 +1155,11 @@ class WaptDownloadPackage(WaptTask):
 
     def printhook(self,received,total,speed,url):
         self.wapt.check_cancelled()
-        stat = u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total, speed)
-        self.progress = 100.0*received/total
+        if total>1.0:
+            stat = u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total, speed)
+            self.progress = 100.0*received/total
+        else:
+            stat = u''
         self.update_status('Downloading %s : %s' % (url,stat))
 
     def _run(self):
@@ -1333,12 +1341,14 @@ class WaptTaskManager(threading.Thread):
 
                     except common.EWaptCancelled as e:
                         if self.running_task:
-                            self.running_task.logs.append(u"{}".format(e))
+                            self.running_task.logs.append(u"{}".format(setuphelpers.ensure_unicode(e)))
+                            self.running_task.summary = u"Cancelled"
                             self.tasks_cancelled.append(self.running_task)
                             self.broadcast_tasks_status('CANCEL',self.running_task.as_dict())
                     except Exception as e:
                         if self.running_task:
-                            self.running_task.logs.append(u"{}".format(e))
+                            self.running_task.logs.append(u"{}".format(setuphelpers.ensure_unicode(e)))
+                            self.running_task.summary = u"{}".format(setuphelpers.ensure_unicode(e))
                             self.tasks_error.append(self.running_task)
                             self.broadcast_tasks_status('ERROR',self.running_task.as_dict())
                         logger.critical(setuphelpers.ensure_unicode(e))

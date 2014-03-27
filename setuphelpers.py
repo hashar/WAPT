@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-__version__ = "0.8.16"
+__version__ = "0.8.21"
 import os
 import sys
 import logging
@@ -195,30 +195,35 @@ def wgets(url,proxies=None):
 def wget(url,target,printhook=None,proxies=None):
     r"""Copy the contents of a file from a given URL
     to a local file.
-    >>> def nullhook(received,total,speed,url):
-    ...    pass
-    >>> respath = wget('http://wapt.tranquil.it/wapt/tis-firefox_28.0.0-1_all.wapt','c:\\tmp\\test.wapt',printhook=nullhook,proxies={'http':'proxy:3128'})
+    >>> respath = wget('http://wapt.tranquil.it/wapt/tis-firefox_28.0.0-1_all.wapt','c:\\tmp\\test.wapt',proxies={'http':'proxy:3128'})
+    ???
     >>> os.stat(respath).st_size>10000
     True
+    >>> respath = wget('http://localhost:8088/runstatus','c:\\tmp\\test.json')
+    ???
     """
     start_time = time.time()
     last_time_display = 0.0
     last_downloaded = 0
 
     def reporthook(received,total):
+        total = float(total)
         if total>1 and received>1:
             # print only every second or at end
-            if (time.time()-last_time_display>=1) or (received>=total):
+            if (time.time()-start_time>1) and ((time.time()-last_time_display>=1) or (received>=total)):
                 speed = received /(1024.0 * (time.time()-start_time))
                 if printhook:
                     printhook(received,total,speed,url)
                 else:
-                    if received == 0:
-                        print u"Downloading %s (%.1f Mb)" % (url,int(total)/1024/1024)
-                    elif received>=total:
-                        print u"  -> download finished (%.0f Kb/s)" % (total/(1024.0*(time.time()+.001-start_time)))
-                    else:
-                        print u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total,speed ),
+                    try:
+                        if received == 0:
+                            print u"Downloading %s (%.1f Mb)" % (url,int(total)/1024/1024)
+                        elif received>=total:
+                            print u"  -> download finished (%.0f Kb/s)" % (total /(1024.0*(time.time()+.001-start_time)))
+                        else:
+                            print u'%i / %i (%.0f%%) (%.0f KB/s)\r' % (received,total,100.0*received/total,speed ),
+                    except:
+                        return False
                 return True
             else:
                 return False

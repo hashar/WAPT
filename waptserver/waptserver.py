@@ -20,7 +20,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__="0.8.16"
+__version__="0.8.17"
 
 import os,sys
 wapt_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'..'))
@@ -53,6 +53,10 @@ import pefile
 import subprocess
 import tempfile
 from rocket import Rocket
+
+import thread
+import threading
+
 
 from waptpackage import *
 
@@ -233,7 +237,7 @@ def get_host_list():
 
         result = list_hosts
     except Exception as e:
-        result = dict(status='ERROR',message='%s: %s'%('update_host',e),result=None)
+        result = dict(status='ERROR',message='%s: %s'%('hosts',e),result=None)
 
     return Response(response=json.dumps(result),
                      status=200,
@@ -267,9 +271,15 @@ def update_host():
     except Exception as e:
         result = dict(status='ERROR',message='%s: %s'%('update_host',e),result=None)
 
-    return Response(response=json.dumps(result),
-                     status=200,
-                     mimetype="application/json")
+    # backward... to fix !
+    if result['status'] == 'OK':
+        return Response(response=json.dumps(result['result']),
+                         status=200,
+                         mimetype="application/json")
+    else:
+        return Response(response=json.dumps(result),
+                         status=200,
+                         mimetype="application/json")
 
 @app.route('/delete_host/<string:uuid>')
 def delete_host(uuid=""):
@@ -283,7 +293,7 @@ def delete_host(uuid=""):
                  status=200,
                  mimetype="application/json")
 
-
+# to fix !
 @app.route('/client_software_list/<string:uuid>')
 def get_client_software_list(uuid=""):
     softwares = get_host_data(uuid, filter={"softwares":1})
@@ -872,6 +882,27 @@ def authenticate():
     return Response(
         'You have to login with proper credentials', 401,
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
+class CheckHostsWaptService(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.mongoclient = MongoClient(mongodb_ip, int(mongodb_port))
+        self.db = mongoclient.wapt
+        self.polltimeout = 20
+
+    def get_hosts_ip(self):
+        list_hosts = []
+        query = {"host.connected_ips":{"$exists": "true", "$ne" :[]}}
+        fields = {'host.connected_ips':1,'uuid':1,'host.computer_fqdn':1}
+        result = {}
+        for host in self.db.hosts.find(query,fields=fields):
+            result[host['uuid']] = host['host.connected_ips']
+        return result
+
+    def run(self):
+        pass
+
 
 if __name__ == "__main__":
     debug=False

@@ -99,6 +99,7 @@ parser.add_option("-l","--loglevel", dest="loglevel", default=None, type='choice
 logger = logging.getLogger()
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
 
+
 def setloglevel(logger,loglevel):
     """set loglevel as string"""
     if loglevel in ('debug','warning','info','error','critical'):
@@ -111,6 +112,7 @@ def setloglevel(logger,loglevel):
 if options.loglevel is not None:
     setloglevel(logger,options.loglevel)
 
+
 def get_authorized_callers_ip(waptserver_url):
     """Returns list of IP allowed to request actions with check_caller decorator"""
     ips = ['127.0.0.1']
@@ -121,6 +123,7 @@ def get_authorized_callers_ip(waptserver_url):
             # no network connection to resolve hostname
             pass
     return ips
+
 
 class WaptServiceConfig(object):
     """Configuration parameters from wapt-get.ini file
@@ -182,7 +185,6 @@ class WaptServiceConfig(object):
             else:
                 self.waptservice_poll_timeout = 10
 
-
             if config.has_option('global','dbdir'):
                 self.dbpath = os.path.join(config.get('global','dbdir'),'waptdb.sqlite')
             else:
@@ -212,6 +214,7 @@ class WaptServiceConfig(object):
 
     def __str__(self):
         return u"{}".format(self.as_dict(),)
+
 
 def format_isodate(isodate):
     """Pretty format iso date like : 2014-01-21T17:36:15.652000
@@ -253,6 +256,7 @@ def beautify(c):
     else:
         return jinja2.Markup(u"<pre>{}</pre>".format(setuphelpers.ensure_unicode(c)))
 
+
 def ssl_required(fn):
     @wraps(fn)
     def decorated_view(*args, **kwargs):
@@ -264,6 +268,7 @@ def ssl_required(fn):
 
         return fn(*args, **kwargs)
     return decorated_view
+
 
 def check_open_port(portnumber=8088):
     """Configure local firewall to accept incoming request to specified tcp port
@@ -303,6 +308,7 @@ app.config['PROPAGATE_EXCEPTIONS'] = True
 app.jinja_env.filters['beautify'] = beautify
 app.waptconfig = waptconfig
 
+
 def wapt():
     if not hasattr(g,'wapt'):
         g.wapt = Wapt(config_filename = waptconfig.config_filename)
@@ -325,6 +331,7 @@ def requires_auth(f):
             logging.info("user %s authenticated" % auth.username)
         return f(*args, **kwargs)
     return decorated
+
 
 def check_auth(username, password):
     """This function is called to check if a username /
@@ -390,6 +397,7 @@ def status():
     else:
         return render_template('status.html',packages=rows,format_isodate=format_isodate,Version=setuphelpers.Version)
 
+
 @app.route('/list')
 @app.route('/packages')
 @app.route('/packages.json')
@@ -415,6 +423,7 @@ def all_packages():
         return Response(common.jsondump(rows), mimetype='application/json')
     else:
         return render_template('list.html',packages=rows,format_isodate=format_isodate,Version=setuphelpers.Version)
+
 
 @app.route('/package_icon')
 @check_ip_source
@@ -448,6 +457,7 @@ def package_icon():
     except requests.HTTPError as e:
         icon = get_icon('unknown')
         return send_file(icon,'image/png',as_attachment=True,attachment_filename='{}.png'.format('unknown'),cache_timeout=43200)
+
 
 @app.route('/package_details')
 @app.route('/package_details.json')
@@ -484,6 +494,7 @@ def get_runstatus():
             logger.critical(u"*********** error " + ensure_unicode(e))
     return Response(common.jsondump(data), mimetype='application/json')
 
+
 @app.route('/checkupgrades')
 @app.route('/checkupgrades.json')
 @check_ip_source
@@ -503,6 +514,7 @@ def get_checkupgrades():
     else:
         return render_template('default.html',data=data,title=u'Status des mises à jour')
 
+
 @app.route('/waptupgrade')
 @app.route('/waptupgrade.json')
 @check_ip_source
@@ -514,6 +526,7 @@ def waptclientupgrade():
     else:
         return render_template('default.html',data=data,title='Upgrade')
 
+
 @app.route('/reload_config')
 @app.route('/reload_config.json')
 @check_ip_source
@@ -524,6 +537,7 @@ def reload_config():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('default.html',data=data,title='Recharger configuration')
+
 
 @app.route('/upgrade')
 @app.route('/upgrade.json')
@@ -537,6 +551,7 @@ def upgrade():
     else:
         return render_template('default.html',data=data,title='Upgrade')
 
+
 @app.route('/update')
 @app.route('/update.json')
 @check_ip_source
@@ -546,6 +561,7 @@ def update():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('default.html',data=data,title=u'Mise à jour des logiciels installés')
+
 
 @app.route('/update_status')
 @app.route('/update_status.json')
@@ -558,6 +574,7 @@ def update_status():
     else:
         return render_template('default.html',data=data,title=task)
 
+
 @app.route('/longtask')
 @app.route('/longtask.json')
 @check_ip_source
@@ -567,6 +584,7 @@ def longtask():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('default.html',data=data,title='LongTask')
+
 
 @app.route('/cleanup')
 @app.route('/cleanup.json')
@@ -579,6 +597,7 @@ def cleanup():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('default.html',data=data,title='Cleanup')
+
 
 @app.route('/install_log')
 @app.route('/install_log.json')
@@ -595,6 +614,7 @@ def install_log():
     else:
         return render_template('default.html',data=data,title='Traces de l''installation de {}'.format(packagename))
 
+
 @app.route('/enable')
 @requires_auth
 def enable():
@@ -602,12 +622,14 @@ def enable():
     data = wapt().enable_tasks()
     return Response(common.jsondump(data), mimetype='application/json')
 
+
 @app.route('/disable')
 @requires_auth
 def disable():
     logger.info("disable tasks scheduling")
     data = wapt().disable_tasks()
     return Response(common.jsondump(data), mimetype='application/json')
+
 
 @app.route('/register')
 @app.route('/register.json')
@@ -620,7 +642,6 @@ def register():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('default.html',data=data,title='Enregistrement du poste de travail sur le serveur WAPT')
-
 
 
 @app.route('/inventory')
@@ -664,6 +685,7 @@ def package_download():
     else:
         return render_template('default.html',data=data)
 
+
 @app.route('/remove', methods=['GET'])
 @app.route('/remove.json', methods=['GET'])
 @check_ip_source
@@ -682,6 +704,7 @@ def remove():
 def static(filename):
     return send_file(open(os.path.join(wapt_root_dir,'static',filename),'rb'),as_attachment=False)
 """
+
 
 @app.route('/', methods=['GET'])
 def index():
@@ -710,6 +733,7 @@ def login():
             return redirect(url_for('index'))
     return render_template('login.html', error=error)
 
+
 @app.route('/tasks')
 @app.route('/tasks.json')
 @check_ip_source
@@ -719,6 +743,7 @@ def tasks():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('tasks.html',data=data)
+
 
 @app.route('/tasks_status')
 @app.route('/tasks_status.json')
@@ -736,6 +761,7 @@ def tasks_status():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('tasks.html',data=data)
+
 
 @app.route('/task')
 @app.route('/task.json')
@@ -757,11 +783,13 @@ def task():
     else:
         return render_template('task.html',task=task)
 
+
 @app.route('/task_events')
 @app.route('/task_events.json')
 @check_ip_source
 def task_events():
     id = int(request.args['id'])
+
     def generate():
         try:
             print "BEGIn EVENTS"
@@ -787,6 +815,7 @@ def task_events():
 
     return Response(stream_with_context(generate()), mimetype='text/html')
 
+
 @app.route('/cancel_all_tasks')
 @app.route('/cancel_all_tasks.html')
 @app.route('/cancel_all_tasks.json')
@@ -797,6 +826,7 @@ def cancel_all_tasks():
         return Response(common.jsondump(data), mimetype='application/json')
     else:
         return render_template('default.html',data=data)
+
 
 @app.route('/cancel_running_task')
 @app.route('/cancel_running_task.json')
@@ -824,6 +854,7 @@ class EventsPrinter:
                 self.events.send_multipart(['PRINT',u'{}'.format(setuphelpers.ensure_unicode(text)).encode('utf8')])
             self.logs.append(repr(text))
 
+
 def eventprintinfo(func):
     '''Wraps a method so that any calls made to print get logged instead'''
     def pwrapper(*arg, **kwargs):
@@ -837,6 +868,7 @@ def eventprintinfo(func):
     return pwrapper
 
 new_wapt_event = threading.Event()
+
 
 class WaptTask(object):
     """Base object class for all wapt task : download, install, remove, upgrade..."""
@@ -943,6 +975,7 @@ class WaptTask(object):
     def same_action(self,other):
         return self.__class__ == other.__class__
 
+
 class WaptNetworkReconfig(WaptTask):
     def __init__(self):
         super(WaptNetworkReconfig,self).__init__()
@@ -962,6 +995,7 @@ class WaptNetworkReconfig(WaptTask):
 
     def __str__(self):
         return u"Reconfiguration accès réseau"
+
 
 class WaptClientUpgrade(WaptTask):
     def __init__(self):
@@ -1015,6 +1049,7 @@ class WaptUpdate(WaptTask):
     def __str__(self):
         return u"Mise à jour des paquets disponibles"
 
+
 class WaptUpgrade(WaptTask):
     def __init__(self):
         super(WaptUpgrade,self).__init__()
@@ -1051,9 +1086,9 @@ class WaptUpgrade(WaptTask):
             errors = cjoin(self.result['errors']),
         )
 
-
     def __str__(self):
         return u'Mise à jour des paquets installés sur la machine'
+
 
 class WaptUpdateServerStatus(WaptTask):
     """Send workstation status to server"""
@@ -1078,6 +1113,7 @@ class WaptUpdateServerStatus(WaptTask):
     def __str__(self):
         return u"Informer le serveur de l'état du poste de travail"
 
+
 class WaptRegisterComputer(WaptTask):
     """Send workstation status to server"""
     def __init__(self):
@@ -1100,6 +1136,7 @@ class WaptRegisterComputer(WaptTask):
 
     def __str__(self):
         return u"Informer le serveur de l'inventaire du poste de travail"
+
 
 class WaptCleanup(WaptTask):
     """Cleanup local packages cache"""
@@ -1146,6 +1183,7 @@ class WaptLongTask(WaptTask):
 
     def __str__(self):
         return u"Test long running task of {}s".format(self.duration)
+
 
 class WaptDownloadPackage(WaptTask):
     def __init__(self,packagename,usecache=False):
@@ -1209,6 +1247,7 @@ class WaptPackageInstall(WaptTask):
     def same_action(self,other):
         return (self.__class__ == other.__class__) and (self.packagename == other.packagename)
 
+
 class WaptPackageRemove(WaptPackageInstall):
     def __init__(self,packagename,force=False):
         super(WaptPackageRemove,self).__init__(packagename=packagename,force=force)
@@ -1227,6 +1266,7 @@ class WaptPackageRemove(WaptPackageInstall):
 
     def __str__(self):
         return u"Désinstallation de {packagename} (tâche #{id})".format(classname=self.__class__.__name__,id=self.id,packagename=self.packagename)
+
 
 class WaptTaskManager(threading.Thread):
     def __init__(self,config_filename = 'c:/wapt/wapt-get.ini'):
@@ -1388,7 +1428,6 @@ class WaptTaskManager(threading.Thread):
         except Exception as e:
             return u"Error : tasks list locked : {}".format(e)
 
-
     def cancel_running_task(self):
         """Cancel running task. Returns cancelled task"""
         try:
@@ -1482,6 +1521,7 @@ class WaptTaskManager(threading.Thread):
 
     def __str__(self):
         return "\n".join(self.tasks_status())
+
 
 def install_service():
     """Setup waptservice as a windows Service managed by nssm

@@ -39,6 +39,7 @@ http://pysvn.tigris.org/servlets/ProjectDocumentList?folderID=1768
 
 """
 
+
 def programfiles32():
     """Return 32bits applications folder."""
     if 'PROGRAMW6432' in os.environ and 'PROGRAMFILES(X86)' in os.environ:
@@ -58,6 +59,7 @@ def ssl_server_trust_prompt( trust_dict ):
 client = pysvn.Client()
 config_file = "c:\\private\\autobuild.ini"
 config = ConfigParser.RawConfigParser()
+
 
 def get_required_param(param_name,section='global'):
     global config
@@ -132,5 +134,3 @@ sftp = ssh.open_sftp()
 sftp.put(remotepath=remotefile, localpath=localfile)
 sftp.close()
 ssh.close()
-
-

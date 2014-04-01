@@ -160,10 +160,10 @@ def WinVersion():
 #b24chrs = (string.digits + string.ascii_uppercase)[:24]
 generic_b24chrs = '0123456789ABCDEFGHIJKLMN'
 
-code_len = 25 # encoded key length (user-readable key)
-bin_len = 15 # binary key length
-regkey_idx = 52 # start of key in DPID for 2003, 2007
-regkey_idx_2010 = 0x328 # start in DPID for 2010
+code_len = 25  # encoded key length (user-readable key)
+bin_len = 15  # binary key length
+regkey_idx = 52  # start of key in DPID for 2003, 2007
+regkey_idx_2010 = 0x328  # start in DPID for 2010
 
 b24chrs = 'BCDFGHJKMPQRTVWXY2346789'
 reg_root = r'Software\Microsoft\Office'
@@ -302,7 +302,7 @@ def GetMSDPID3(sHivePath):
     if reg_getvalue(key,'DigitalProductID',None):
         (HexBuf,rtype) = _winreg.QueryValueEx(key,'DigitalProductID')
         iBinarySize = len(HexBuf)
-        if iBinarySize >= 67: #Incomplete data  but still might be enough
+        if iBinarySize >= 67:  # Incomplete data but might still be enough
             sProdID = 'Not found'
             sProdID = reg_getvalue(key,'ProductID')
             sText = ''

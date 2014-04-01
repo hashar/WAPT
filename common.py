@@ -206,8 +206,8 @@ def pptable(cursor, data=None, rowlens=0, callback=None):
     for dd in d:    # iterate over description
         l = dd[1]
         if not l:
-            l = 12             # or default arg ...
-        l = max(l, len(dd[0])) # handle long names
+            l = 12              # or default arg ...
+        l = max(l, len(dd[0]))  # handle long names
         names.append(dd[0])
         lengths.append(l)
     for col in range(len(lengths)):
@@ -3766,7 +3766,7 @@ class Wapt(object):
             raise Exception('Package %s is not installed' % packagename)
 
         # initialize a session db for the user
-        session_db =  WaptSessionDB(self.user) # WaptSessionDB()
+        session_db =  WaptSessionDB(self.user)  # WaptSessionDB()
         with session_db:
             if force or os.path.isdir(packagename) or not session_db.is_installed(package_entry.package,package_entry.version):
                 try:

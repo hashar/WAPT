@@ -173,7 +173,7 @@ class WaptServiceConfig(object):
                 self.wapt_password = config.get('global', 'waptservice_password')
             else:
                 logger.warning("WARNING : no password set, using default password")
-                self.wapt_password='5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8' # = password
+                self.wapt_password='5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'  # = password
 
             if config.has_option('global','waptservice_port'):
                 self.waptservice_port = int(config.get('global','waptservice_port'))

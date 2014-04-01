@@ -1419,7 +1419,7 @@ def get_current_user():
     import ctypes
     MAX_PATH = 260                  # according to a recent WinDef.h
     name = ctypes.create_unicode_buffer(MAX_PATH)
-    namelen = ctypes.c_int(len(name)) # len in chars, NOT bytes
+    namelen = ctypes.c_int(len(name))  # len in chars, NOT bytes
     if not ctypes.windll.advapi32.GetUserNameW(name, ctypes.byref(namelen)):
         raise ctypes.WinError()
     return ensure_unicode(name.value)

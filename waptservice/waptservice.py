@@ -19,7 +19,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__ = "0.8.23"
+__version__ = "0.8.24"
 
 import time
 import sys
@@ -930,8 +930,7 @@ class WaptTask(object):
         if self.wapt:
             self.runstatus = status
             self.wapt.runstatus = status
-            if self.notify_user:
-                self.wapt.events.send_multipart(["TASKS",'PROGRESS',common.jsondump(self.as_dict())])
+            self.wapt.events.send_multipart(["TASKS",'PROGRESS',common.jsondump(self.as_dict())])
 
     def can_run(self,explain=False):
         """Return True if all the requirements for the task are met
@@ -1325,6 +1324,7 @@ class WaptTaskManager(threading.Thread):
         # init zeromq events broadcast
         zmq_context = zmq.Context()
         event_queue = zmq_context.socket(zmq.PUB)
+        event_queue.hwm = 10000;
 
         # start event broadcasting
         event_queue.bind("tcp://127.0.0.1:{}".format(waptconfig.zmq_port))
@@ -1362,9 +1362,8 @@ class WaptTaskManager(threading.Thread):
         # ignore broadcast for this..
         if isinstance(task,WaptUpdateServerStatus):
             return
-        if self.events and task and task.notify_user:
-            if task:
-                self.wapt.events.send_multipart(["TASKS",topic,common.jsondump(task)])
+        if self.events and task:
+            self.wapt.events.send_multipart(["TASKS",topic,common.jsondump(task)])
 
     def add_task(self,task,notify_user=None):
         """Adds a new WaptTask for processing"""
@@ -1514,7 +1513,9 @@ class WaptTaskManager(threading.Thread):
                             cancelled.kill()
                         except:
                             pass
-                return cancelled
+                if cancelled:
+                    self.broadcast_tasks_status('CANCEL',cancelled)
+            return cancelled
 
         except Exception as e:
             return u"Error : tasks list locked : {}".format(setuphelpers.ensure_unicode(e))

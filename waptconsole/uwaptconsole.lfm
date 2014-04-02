@@ -1,7 +1,7 @@
 object VisWaptGUI: TVisWaptGUI
-  Left = 296
+  Left = 352
   Height = 695
-  Top = 166
+  Top = 135
   Width = 1072
   Caption = 'Console WAPT'
   ClientHeight = 676
@@ -308,7 +308,7 @@ object VisWaptGUI: TVisWaptGUI
         PopupMenu = PopupMenuHosts
         TabOrder = 2
         TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toFullRowDrag]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toToggleOnDblClick, toFullRowDrag]
         TreeOptions.PaintOptions = [toHideFocusRect, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toAlwaysHideSelection, toUseExplorerTheme]
         TreeOptions.SelectionOptions = [toExtendedFocus, toMultiSelect, toRightClickSelect, toSimpleDrawSelection]
         WantTabs = True
@@ -317,6 +317,7 @@ object VisWaptGUI: TVisWaptGUI
         OnCompareNodes = GridHostsCompareNodes
         OnDragOver = GridHostsDragOver
         OnDragDrop = GridHostsDragDrop
+        OnEditing = GridHostsEditing
         OnGetImageIndexEx = GridHostsGetImageIndexEx
       end
       object HostPages: TPageControl

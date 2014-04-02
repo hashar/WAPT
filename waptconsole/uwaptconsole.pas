@@ -283,6 +283,8 @@ type
     procedure GridHostsDragOver(Sender: TBaseVirtualTree; Source: TObject;
       Shift: TShiftState; State: TDragState; const Pt: TPoint; Mode: TDropMode;
       var Effect: DWORD; var Accept: Boolean);
+    procedure GridHostsEditing(Sender: TBaseVirtualTree; Node: PVirtualNode;
+      Column: TColumnIndex; var Allowed: Boolean);
     procedure GridHostsGetImageIndexEx(Sender: TBaseVirtualTree;
       Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
       var Ghosted: boolean; var ImageIndex: integer;
@@ -1802,6 +1804,11 @@ begin
   end;
 end;
 
+procedure TVisWaptGUI.GridHostsEditing(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; var Allowed: Boolean);
+begin
+  Allowed:=False;
+end;
 
 procedure TVisWaptGUI.GridLoadData(grid: TSOGrid; jsondata: string);
 begin

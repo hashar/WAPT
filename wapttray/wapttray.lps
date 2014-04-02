@@ -11,8 +11,8 @@
         <UnitName Value="wapttray"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="13"/>
-        <CursorPos X="60" Y="17"/>
+        <TopLine Value="15"/>
+        <CursorPos X="22" Y="32"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -20,10 +20,12 @@
         <Filename Value="..\wapt-get\waptcommon.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="waptcommon"/>
+        <EditorIndex Value="4"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="218"/>
-        <CursorPos X="59" Y="224"/>
+        <TopLine Value="22"/>
+        <CursorPos X="10" Y="32"/>
         <UsageCount Value="201"/>
+        <Loaded Value="True"/>
       </Unit1>
       <Unit2>
         <Filename Value="udmwapttray.pas"/>
@@ -35,8 +37,8 @@
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="210"/>
-        <CursorPos X="3" Y="224"/>
+        <TopLine Value="507"/>
+        <CursorPos X="93" Y="532"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -99,10 +101,12 @@
       <Unit10>
         <Filename Value="..\..\pltis_superobject\source\superobject.pas"/>
         <UnitName Value="superobject"/>
+        <EditorIndex Value="2"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="3535"/>
-        <CursorPos X="1" Y="3554"/>
-        <UsageCount Value="52"/>
+        <TopLine Value="3576"/>
+        <CursorPos X="1" Y="3589"/>
+        <UsageCount Value="53"/>
+        <Loaded Value="True"/>
       </Unit10>
       <Unit11>
         <Filename Value="C:\codetyphon\fpcsrc\packages\winunits-base\src\wininet.pp"/>
@@ -182,16 +186,18 @@
         <Filename Value="..\..\pltis_delphizmq\zmqapi.pas"/>
         <UnitName Value="zmqapi"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1686"/>
-        <CursorPos X="17" Y="1689"/>
-        <UsageCount Value="6"/>
+        <TopLine Value="388"/>
+        <CursorPos X="20" Y="402"/>
+        <UsageCount Value="10"/>
       </Unit21>
       <Unit22>
         <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\classes\classesh.inc"/>
+        <EditorIndex Value="3"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="89"/>
-        <CursorPos X="40" Y="103"/>
-        <UsageCount Value="21"/>
+        <TopLine Value="1632"/>
+        <CursorPos X="21" Y="1644"/>
+        <UsageCount Value="22"/>
+        <Loaded Value="True"/>
       </Unit22>
       <Unit23>
         <Filename Value="..\..\pltis_delphizmq\zmq.pas"/>
@@ -205,9 +211,12 @@
         <Filename Value="..\..\pltis_utils\tiscommon.pas"/>
         <UnitName Value="tiscommon"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="495"/>
-        <CursorPos X="32" Y="517"/>
-        <UsageCount Value="19"/>
+        <TopLine Value="106"/>
+        <CursorPos X="16" Y="129"/>
+        <UsageCount Value="20"/>
+        <Bookmarks Count="1">
+          <Item0 X="23" Y="1359" ID="2"/>
+        </Bookmarks>
       </Unit24>
       <Unit25>
         <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\strutils.pp"/>
@@ -377,9 +386,9 @@
         <Filename Value="C:\codetyphon\fpcsrc\rtl\win\winsock2.pp"/>
         <UnitName Value="WinSock2"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="424"/>
-        <CursorPos X="3" Y="444"/>
-        <UsageCount Value="4"/>
+        <TopLine Value="1174"/>
+        <CursorPos X="10" Y="1191"/>
+        <UsageCount Value="10"/>
       </Unit46>
       <Unit47>
         <Filename Value="C:\codetyphon\fpcsrc\rtl\win\wininc\redef.inc"/>
@@ -417,126 +426,133 @@
     </General>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="204" Column="23" TopLine="186"/>
+        <Filename Value="..\..\pltis_superobject\source\superobject.pas"/>
+        <Caret Line="3589" Column="1" TopLine="3576"/>
       </Position1>
       <Position2>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="131" Column="20" TopLine="123"/>
+        <Filename Value="..\..\pltis_superobject\source\superobject.pas"/>
+        <Caret Line="3590" Column="1" TopLine="3576"/>
       </Position2>
       <Position3>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="163" Column="20" TopLine="131"/>
+        <Filename Value="..\..\pltis_superobject\source\superobject.pas"/>
+        <Caret Line="3591" Column="1" TopLine="3576"/>
       </Position3>
       <Position4>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="165" Column="28" TopLine="133"/>
+        <Filename Value="..\..\pltis_superobject\source\superobject.pas"/>
+        <Caret Line="3592" Column="1" TopLine="3576"/>
       </Position4>
       <Position5>
-        <Filename Value="udmwapttray.pas"/>
-        <Caret Line="174" Column="30" TopLine="139"/>
+        <Filename Value="..\..\pltis_superobject\source\superobject.pas"/>
+        <Caret Line="2105" Column="1" TopLine="2091"/>
       </Position5>
       <Position6>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="178" Column="28" TopLine="146"/>
+        <Caret Line="468" Column="1" TopLine="455"/>
       </Position6>
       <Position7>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="185" Column="7" TopLine="176"/>
+        <Caret Line="470" Column="12" TopLine="455"/>
       </Position7>
       <Position8>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="1" Column="1" TopLine="1"/>
+        <Caret Line="469" Column="19" TopLine="455"/>
       </Position8>
       <Position9>
-        <Filename Value="wapttray.lpr"/>
-        <Caret Line="42" Column="25" TopLine="3"/>
+        <Filename Value="udmwapttray.pas"/>
+        <Caret Line="468" Column="14" TopLine="455"/>
       </Position9>
       <Position10>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="351" Column="8" TopLine="329"/>
+        <Caret Line="440" Column="22" TopLine="426"/>
       </Position10>
       <Position11>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="370" Column="39" TopLine="346"/>
+        <Caret Line="1" Column="1" TopLine="1"/>
       </Position11>
       <Position12>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="1" Column="1" TopLine="1"/>
+        <Caret Line="187" Column="18" TopLine="174"/>
       </Position12>
       <Position13>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="15" Column="30" TopLine="1"/>
+        <Caret Line="469" Column="1" TopLine="456"/>
       </Position13>
       <Position14>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="22" Column="21" TopLine="1"/>
+        <Caret Line="485" Column="1" TopLine="472"/>
       </Position14>
       <Position15>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="57" Column="16" TopLine="35"/>
+        <Caret Line="469" Column="1" TopLine="456"/>
       </Position15>
       <Position16>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="66" Column="31" TopLine="44"/>
+        <Caret Line="505" Column="1" TopLine="492"/>
       </Position16>
       <Position17>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="92" Column="24" TopLine="70"/>
+        <Caret Line="469" Column="1" TopLine="456"/>
       </Position17>
       <Position18>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="97" Column="36" TopLine="75"/>
+        <Caret Line="487" Column="27" TopLine="472"/>
       </Position18>
       <Position19>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="113" Column="93" TopLine="91"/>
+        <Caret Line="451" Column="22" TopLine="428"/>
       </Position19>
       <Position20>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="133" Column="23" TopLine="110"/>
+        <Caret Line="115" Column="14" TopLine="103"/>
       </Position20>
       <Position21>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="167" Column="50" TopLine="144"/>
+        <Caret Line="74" Column="25" TopLine="74"/>
       </Position21>
       <Position22>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="188" Column="27" TopLine="165"/>
+        <Caret Line="331" Column="23" TopLine="316"/>
       </Position22>
       <Position23>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="192" Column="27" TopLine="169"/>
+        <Caret Line="417" Column="46" TopLine="406"/>
       </Position23>
       <Position24>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="198" Column="27" TopLine="175"/>
+        <Caret Line="465" Column="46" TopLine="443"/>
       </Position24>
       <Position25>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="290" Column="52" TopLine="267"/>
+        <Caret Line="502" Column="47" TopLine="492"/>
       </Position25>
       <Position26>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="404" Column="23" TopLine="381"/>
+        <Caret Line="544" Column="44" TopLine="525"/>
       </Position26>
       <Position27>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="603" Column="49" TopLine="580"/>
+        <Caret Line="499" Column="24" TopLine="458"/>
       </Position27>
       <Position28>
-        <Filename Value="wapttray.lpr"/>
-        <Caret Line="41" Column="1" TopLine="15"/>
+        <Filename Value="udmwapttray.pas"/>
+        <Caret Line="480" Column="47" TopLine="461"/>
       </Position28>
       <Position29>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="685" Column="78" TopLine="662"/>
+        <Caret Line="481" Column="48" TopLine="461"/>
       </Position29>
       <Position30>
         <Filename Value="udmwapttray.pas"/>
-        <Caret Line="1" Column="1" TopLine="1"/>
+        <Caret Line="482" Column="1" TopLine="461"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>
+  <Debugging>
+    <Watches Count="1">
+      <Item1>
+        <Expression Value="topic"/>
+      </Item1>
+    </Watches>
+  </Debugging>
   <EditorMacros Count="0"/>
 </CONFIG>

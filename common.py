@@ -20,8 +20,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-
-__version__ = "0.8.21"
+__version__ = "0.8.22"
 import os
 import re
 import logging
@@ -617,11 +616,14 @@ class LogInstallOutput(object):
     def write(self,txt):
         with self.lock:
             txt = ensure_unicode(txt)
-            self.console.write(txt)
+            try:
+                self.console.write(txt)
+            except:
+                self.console.write(repr(txt))
             if txt <> '\n':
                 self.output.append(txt)
-                if txt and txt[-1]<>'\n':
-                    txtdb = txt+'\n'
+                if txt and txt[-1]<>u'\n':
+                    txtdb = txt+u'\n'
                 else:
                     txtdb = txt
                 if threading.current_thread() == self.threadid:
@@ -2566,7 +2568,7 @@ class Wapt(object):
         previous_uninstall = self.registry_uninstall_snapshot()
         entry = PackageEntry()
         entry.load_control_from_wapt(fname)
-        self.runstatus="Installing package %s version %s ..." % (entry.package,entry.version)
+        self.runstatus=u"Installing package %s version %s ..." % (entry.package,entry.version)
         old_stdout = sys.stdout
         old_stderr = sys.stderr
 
@@ -2609,7 +2611,7 @@ class Wapt(object):
             elif os.path.isdir(fname):
                 packagetempdir = fname
             else:
-                raise Exception('%s is not a file nor a directory, aborting.' % fname)
+                raise Exception(u'%s is not a file nor a directory, aborting.' % fname)
 
             # chech sha1
             self.check_cancelled()
@@ -2624,21 +2626,21 @@ class Wapt(object):
                         signature = open(signature_filename,'r').read().decode('base64')
                         try:
                             subject = ssl_verify_content(manifest_data,signature,self.public_certs)
-                            logger.info('Package issued by %s' % (subject,))
+                            logger.info(u'Package issued by %s' % (subject,))
                         except:
-                            raise Exception('Package file %s signature is invalid' % fname)
+                            raise Exception(u'Package file %s signature is invalid' % fname)
                     else:
                         if not self.allow_unsigned:
-                            raise Exception('No certificate provided for %s or package does not contain a signature, and unsigned packages install is not allowed' % fname)
+                            raise Exception(u'No certificate provided for %s or package does not contain a signature, and unsigned packages install is not allowed' % fname)
 
                 manifest = json.loads(manifest_data)
                 errors = self.corrupted_files_sha1(packagetempdir,manifest)
                 if errors:
-                    raise Exception('Error in package %s, files corrupted, SHA1 not matching for %s' % (fname,errors,))
+                    raise Exception(u'Error in package %s, files corrupted, SHA1 not matching for %s' % (fname,errors,))
             else:
                 # we allow unsigned in development mode where fname is a directory
                 if not self.allow_unsigned and istemporary:
-                    raise Exception('Package %s does not contain a manifest.sha1 file, and unsigned packages install is not allowed' % fname)
+                    raise Exception(u'Package %s does not contain a manifest.sha1 file, and unsigned packages install is not allowed' % fname)
 
             self.check_cancelled()
             setup_filename = os.path.join( packagetempdir,'setup.py')
@@ -2648,7 +2650,7 @@ class Wapt(object):
                 sys.path.append(os.getcwd())
 
             # import the setup module from package file
-            logger.info("  sourcing install file %s " % setup_filename )
+            logger.info(u"  sourcing install file %s " % setup_filename )
             setup = import_setup(setup_filename,'_waptsetup_')
             required_params = []
 
@@ -2672,10 +2674,10 @@ class Wapt(object):
             for p in required_params:
                 if not p in params_dict:
                     if not is_system_user():
-                        params_dict[p] = raw_input("%s: " % p)
+                        params_dict[p] = raw_input(u"%s: " % p)
                     else:
-                        raise Exception('Required parameters %s is not supplied' % p)
-            logger.info('Install parameters : %s' % (params_dict,))
+                        raise Exception(u'Required parameters %s is not supplied' % p)
+            logger.info(u'Install parameters : %s' % (params_dict,))
 
             # set params dictionary
             if not hasattr(setup,'params'):
@@ -2741,11 +2743,7 @@ class Wapt(object):
         except Exception,e:
             if install_id:
                 try:
-                    try:
-                        uerror = repr(e).decode(locale.getpreferredencoding())
-                    except:
-                        uerror = ensure_unicode(e)
-                    self.waptdb.update_install_status(install_id,'ERROR',uerror)
+                    self.waptdb.update_install_status(install_id,'ERROR',ensure_unicode(e))
                 except Exception,e2:
                     logger.critical(ensure_unicode(e2))
             else:
@@ -3141,6 +3139,8 @@ class Wapt(object):
                 except Exception as e:
                     actions['errors'].append([request,p])
                     logger.critical(u'Package %s not installed due to errors : %s' %(request,ensure_unicode(e)))
+                    if logger.level == logging.DEBUG:
+                        raise
 
             return actions
         else:

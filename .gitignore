@@ -34,3 +34,5 @@ i386-win32
 
 /log/*.log
 /waptautodeploy/lib
+
+/waptsetup/custom_waptsetup.iss

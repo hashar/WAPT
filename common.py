@@ -20,7 +20,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__ = "0.8.23"
+__version__ = "0.8.24"
 import os
 import re
 import logging
@@ -2152,7 +2152,7 @@ class WaptHostRepo(WaptRepo):
             if not self._cached_dns_repo_url:
                 main = self.find_wapt_repo_url()
                 if main:
-                    self._cached_dns_repo_url = +'-host'
+                    self._cached_dns_repo_url = main +'-host'
                 else:
                     self._cached_dns_repo_url = None
             return self._cached_dns_repo_url

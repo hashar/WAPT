@@ -651,9 +651,9 @@ class LogInstallOutput(object):
                 self.console.write(txt)
             except:
                 self.console.write(repr(txt))
-            if txt <> '\n':
+            if txt != '\n':
                 self.output.append(txt)
-                if txt and txt[-1]<>u'\n':
+                if txt and txt[-1] != u'\n':
                     txtdb = txt+u'\n'
                 else:
                     txtdb = txt
@@ -1655,7 +1655,7 @@ class WaptDB(WaptBaseDB):
                     else:
                         # get depends of the most recent matching entry
                         # TODO : use another older if this can limit the number of packages to install !
-                        depends = [s.strip() for s in entries[-1].depends.split(',') if s.strip()<>'']
+                        depends = [s.strip() for s in entries[-1].depends.split(',') if s.strip() != '']
                         available_depends = []
                         for d in depends:
                             if self.packages_matching(d):
@@ -1825,7 +1825,7 @@ class WaptRepo(object):
                         return True
                 return False
 
-            if self.dnsdomain and self.dnsdomain <> '.':
+            if self.dnsdomain and self.dnsdomain != '.':
                 # find by dns SRV _wapt._tcp
                 try:
                     resolv = dns.resolver.get_default_resolver()
@@ -2018,7 +2018,7 @@ class WaptRepo(object):
         endline = 0
 
         def add(start,end):
-            if start <> end:
+            if start != end:
                 package = PackageEntry()
                 package.load_control_from_wapt(packages_lines[start:end])
                 logger.info(u"%s (%s)" % (package.package,package.version))
@@ -2105,7 +2105,7 @@ class WaptHostRepo(WaptRepo):
                 host_package_date = httpdatetime2isodate(host_request.headers['last-modified'])
                 package = None
                 if host_package_date:
-                    if force or host_package_date <> waptdb.get_param(host_cachedate) or not waptdb.packages_matching(host):
+                    if force or host_package_date != waptdb.get_param(host_cachedate) or not waptdb.packages_matching(host):
                         host_package = requests.get(host_package_url,proxies=self.proxies,verify=False,headers={'cache-control':'no-cache','pragma':'no-cache'})
                         host_package.raise_for_status
 
@@ -2331,11 +2331,11 @@ class Wapt(object):
         """Update configuration parameters to supplied inifilename
         """
         for key in self.config.defaults():
-            if hasattr(self,key) and getattr(self,key) <> self.config.defaults()[key]:
+            if hasattr(self,key) and getattr(self,key) != self.config.defaults()[key]:
                 logger.debug('update config global.%s : %s' % (key,getattr(self,key)))
                 self.config.set('global',key,getattr(self,key))
         repositories_names = ','.join([ r.name for r in self.repositories if r.name not in ('global','wapt-host')])
-        if self.config.has_option('global','repositories') and repositories_names <> '':
+        if self.config.has_option('global','repositories') and repositories_names != '':
             self.config.set('global','repositories',repositories_names)
         self.config.write(open(self.config_filename,'wb'))
 
@@ -2422,7 +2422,7 @@ class Wapt(object):
         killed=[]
         for p in psutil.process_iter():
             try:
-                if p.pid <> os.getpid() and (p.create_time() < mindate) and p.name() in ('wapt-get','wapt-get.exe'):
+                if p.pid != os.getpid() and (p.create_time() < mindate) and p.name() in ('wapt-get','wapt-get.exe'):
                     logger.debug('Killing process tree of pid %i' % p.pid)
                     setuphelpers.killtree(p.pid)
                     logger.debug('Killing pid %i' % p.pid)
@@ -2558,7 +2558,7 @@ class Wapt(object):
         errors = []
         for (filename,sha1) in manifest:
             fullpath = os.path.join(rootdir,filename)
-            if sha1 <> sha1_for_file(fullpath):
+            if sha1 != sha1_for_file(fullpath):
                 errors.append(filename)
         return errors
 
@@ -3139,7 +3139,7 @@ class Wapt(object):
 
                 for (fn,sha1) in manifest:
                     if fn == 'WAPT\\control':
-                        if sha1 <> sha1_for_data(control.encode('utf8')):
+                        if sha1 != sha1_for_data(control.encode('utf8')):
                             raise Exception("WAPT/control file of %s is corrupted, sha1 digests don't match" % fname)
                         break
                 # Merge updated control data
@@ -3168,7 +3168,7 @@ class Wapt(object):
                         for k in result.as_dict():
                             p[k] = result[k]
 
-                    if not result or result['install_status']<>'OK':
+                    if not result or result['install_status'] != 'OK':
                         actions['errors'].append([request,p])
                         logger.critical(u'Package %s not installed due to errors' %(request,))
                 except Exception as e:
@@ -3329,7 +3329,7 @@ class Wapt(object):
                 else:
                     logger.debug(u'uninstall key not registered in local DB status.')
 
-                if mydict['install_status'] <> 'ERROR':
+                if mydict['install_status'] != 'ERROR':
                     try:
                         self.uninstall(package)
                     except Exception as e:
@@ -3454,7 +3454,7 @@ class Wapt(object):
 
         inv = self.inventory()
         # store uuid for future use to avoid the use of dmidecode
-        if not self.read_param('uuid') or self.read_param('uuid') <> inv['uuid']:
+        if not self.read_param('uuid') or self.read_param('uuid') != inv['uuid']:
             self.write_param('uuid',inv['uuid'])
         if force:
             inv['force']=True
@@ -3494,7 +3494,7 @@ class Wapt(object):
                     logger.warning('Unable to update server status : %s' % ensure_unicode(e))
                 result = json.loads(req.content)
                 # force register if computer has not been registered or hostname has changed
-                if not result or not 'host' in result or result['host']['computer_fqdn'] <> setuphelpers.get_hostname():
+                if not result or not 'host' in result or result['host']['computer_fqdn'] != setuphelpers.get_hostname():
                     self.register_computer()
                 return result
             else:
@@ -3745,7 +3745,7 @@ class Wapt(object):
                         logger.debug(u'Deleting directory %s' % dir )
                         shutil.rmtree(dir)
 
-                if package_group<>hosts:
+                if package_group != hosts:
                     if self.after_upload:
                         print 'Run after upload script...'
                         print ensure_unicode(self.run(self.after_upload % cmd_dict))
@@ -4221,7 +4221,7 @@ class Wapt(object):
 
         if depends:
             # use supplied list of packages
-            entry.depends = ','.join([u'%s' % p for p in depends if p and p<>packagename ])
+            entry.depends = ','.join([u'%s' % p for p in depends if p and p != packagename ])
 
         codecs.open(control_filename,'w',encoding='utf8').write(entry.ascontrol())
 
@@ -4337,7 +4337,7 @@ class Wapt(object):
     def is_wapt_package_file(self,filename):
         """Return PackageEntry if filename is a wapt package or False"""
         (root,ext)=os.path.splitext(filename)
-        if ext<>'.wapt' or not os.path.isfile(filename):
+        if ext != '.wapt' or not os.path.isfile(filename):
             return False
         try:
             entry = PackageEntry().load_control_from_wapt(filename,calc_md5=False)
@@ -4491,7 +4491,7 @@ class Wapt(object):
         if os.path.isdir(packagename):
             source_control = PackageEntry().load_control_from_wapt(packagename)
             target_directory = self.get_default_development_dir(newname,section=source_control.section)
-            if packagename<>target_directory:
+            if packagename != target_directory:
                 shutil.copytree(packagename,target_directory)
         elif os.path.isfile(packagename):
             source_filename = packagename

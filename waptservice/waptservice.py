@@ -52,14 +52,9 @@ import ctypes
 from network_manager import NetworkManager
 from werkzeug.utils import html
 
-import gc
 import datetime
-import dateutil.parser
-
 import copy
-
 import win32security
-
 import psutil
 
 try:
@@ -251,7 +246,8 @@ def format_isodate(isodate):
         >>> format_isodate('2014-01-21T17:36:15.652000')
         '21/01/2014 17:36:15'
     """
-    return dateutil.parser.parse(isodate).strftime("%d/%m/%Y %H:%M:%S")
+    return isodate.replace('T',' ')[0:20]
+    #dateutil.parser.parse(isodate).strftime("%d/%m/%Y %H:%M:%S")
 
 def beautify(c):
     """return pretty html"""

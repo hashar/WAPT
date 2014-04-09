@@ -20,7 +20,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__ = "0.8.25"
+__version__ = "0.8.26"
 import os
 import re
 import logging
@@ -64,6 +64,9 @@ import shutil
 import win32api
 import ntsecuritycon
 import win32security
+
+from M2Crypto import EVP, X509
+from M2Crypto.EVP import EVPError
 
 from _winreg import HKEY_LOCAL_MACHINE,EnumKey,OpenKey,QueryValueEx,EnableReflectionKey,DisableReflectionKey,QueryReflectionKey,QueryInfoKey,KEY_READ,KEY_WOW64_32KEY,KEY_WOW64_64KEY
 
@@ -354,7 +357,6 @@ def pwd_callback(*args):
 def ssl_sign_content(content,private_key,callback=pwd_callback):
     """ Sign content with the private_key, return the signature"""
     assert os.path.isfile(private_key)
-    from M2Crypto import EVP
     key = EVP.load_key(private_key,callback=callback)
     key.sign_init()
     key.sign_update(content)
@@ -367,7 +369,7 @@ def ssl_verify_content(content,signature,public_certs):
         Content, signature are String
         public_certs is either a filename or a list of filenames
     >>> if not os.path.isfile('c:/private/test.pem'):
-    ...     create_self_signed_key('test',organization='Tranquil IT',locality=u'St Sebastien sur Loire',commonname='wapt.tranquil.it',email='...@tranquil.it')
+    ...     key = create_self_signed_key('test',organization='Tranquil IT',locality=u'St Sebastien sur Loire',commonname='wapt.tranquil.it',email='...@tranquil.it')
     >>> my_content = 'Un test de contenu'
     >>> my_signature = ssl_sign_content(my_content,'c:/private/test.pem')
     >>> ssl_verify_content(my_content,my_signature,'c:/private/test.crt')
@@ -380,7 +382,6 @@ def ssl_verify_content(content,signature,public_certs):
     for fn in public_certs:
         if not os.path.isfile(fn):
             raise Exception('Public certificate %s not found' % fn)
-    from M2Crypto import EVP, X509
     for public_cert in public_certs:
         crt = X509.load_cert(public_cert)
         rsa = crt.get_pubkey().get_rsa()
@@ -394,6 +395,12 @@ def ssl_verify_content(content,signature,public_certs):
 
 
 def private_key_has_password(key):
+    r"""Return True if key can not be loaded without password
+    >>> private_key_has_password(r'c:/tranquilit/wapt/tests/ssl/test.pem')
+    False
+    >>> private_key_has_password(r'c:/tmp/ko.pem')
+    True
+    """
     def callback(*args):
         return ""
     try:
@@ -419,8 +426,6 @@ def check_key_password(key_filename,password=""):
     def callback(*args):
         return password
     try:
-        from M2Crypto import EVP
-        from M2Crypto.EVP import EVPError
         EVP.load_key(key_filename, callback)
     except EVPError:
         return False
@@ -437,12 +442,12 @@ def create_self_signed_key(orgname,
         commonname='',
         email='',
     ):
-    u"""Creates a self signed key/certificate and returns the paths (keyfilename,crtfilename)
-        without password
+    ur"""Creates a self signed key/certificate without password
+    return a dict {'crt_filename': 'c:\\private\\test.crt', 'pem_filename': 'c:\\private\\test.pem'}
     >>> if os.path.isfile('c:/private/test.pem'):
     ...     os.unlink('c:/private/test.pem')
     >>> create_self_signed_key('test',organization='Tranquil IT',locality=u'St Sebastien sur Loire',commonname='wapt.tranquil.it',email='...@tranquil.it')
-    {'crt_filename': 'c:\\\\private\\\\test.crt', 'pem_filename': 'c:\\\\private\\\\test.pem'}
+    {'crt_filename': 'c:\\private\\test.crt', 'pem_filename': 'c:\\private\\test.pem'}
     """
     if not wapt_base_dir:
         wapt_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
@@ -2228,6 +2233,10 @@ class Wapt(object):
         # list of process pids launched by run command
         self.pidlist = []
 
+        # True if we want to use automatic host package based on host fqdn
+        #   privacy problem as there is a request to wapt repo to get
+        #   host package update at each update/upgrade
+        self.use_hostpackages = True
 
         import pythoncom
         pythoncom.CoInitialize()
@@ -2253,6 +2262,7 @@ class Wapt(object):
             'http_proxy':'',
             'tray_check_interval':2,
             'service_interval':2,
+            'use_hostpackages':'1',
             }
 
         if not self.config:
@@ -2288,6 +2298,9 @@ class Wapt(object):
         if self.config.has_option('global','allow_unsigned'):
             self.allow_unsigned = self.config.getboolean('global','allow_unsigned')
 
+        if self.config.has_option('global','use_hostpackages'):
+            self.use_hostpackages = self.config.getboolean('global','use_hostpackages')
+
         if self.config.has_option('global','upload_cmd'):
             self.upload_cmd = self.config.get('global','upload_cmd')
 
@@ -2312,6 +2325,9 @@ class Wapt(object):
         if self.config.has_option('global','language'):
             self.language = self.config.get('global','language')
 
+        # get the list of certificates to use :
+        self.public_certs = glob.glob(os.path.join(self.wapt_base_dir,'ssl','*.crt'))
+
         # Get the configuration of all repositories (url, ...)
         self.repositories = []
         # secondary
@@ -2328,11 +2344,12 @@ class Wapt(object):
         self.repositories.append(main)
 
         # add an automatic host repo
-        host_repo = WaptHostRepo(name='wapt-host').load_config(self.config)
-        if main._repo_url and not host_repo._repo_url:
-            host_repo.repo_url = main.repo_url+'-host'
+        if self.use_hostpackages:
+            host_repo = WaptHostRepo(name='wapt-host').load_config(self.config)
+            if main._repo_url and not host_repo._repo_url:
+                host_repo.repo_url = main.repo_url+'-host'
 
-        self.repositories.append(host_repo)
+            self.repositories.append(host_repo)
 
     def write_config(self,config_filename=None):
         """Update configuration parameters to supplied inifilename
@@ -2409,21 +2426,22 @@ class Wapt(object):
       if cmd_dict['waptdir'] == "wapt-host":
         if self.upload_cmd_host:
           cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
-          return self.run(self.upload_cmd_host % cmd_dict)
+          return dict(status='OK',message=self.run(self.upload_cmd_host % cmd_dict))
         else:
            #upload par http vers un serveur WAPT  (url POST upload_host)
             for file in cmd_dict['waptfile']:
                 file = file[1:-1]
                 with open(file,'rb') as afile:
                     req = requests.post("%s/upload_host" % (self.wapt_server,),files={'file':afile},proxies=self.proxies,verify=False,auth=auth)
-                    req.raise_for_status()
-
-            return req.content
+                    res = json.loads(req.content)
+                    if res['status'] != 'OK':
+                        raise Exception(u'Unable to upload package: %s'%ensure_unicode(res['message']))
+            return res
 
       else:
         if self.upload_cmd:
-          cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
-          return self.run(self.upload_cmd % cmd_dict)
+            cmd_dict['waptfile'] = ' '.join(cmd_dict['waptfile'])
+            return dict(status='OK',message=ensure_unicode(self.run(self.upload_cmd % cmd_dict)))
         else:
           for file in cmd_dict['waptfile']:
             # file is surrounded by quotes for shell usage
@@ -2432,7 +2450,10 @@ class Wapt(object):
             with open(file,'rb') as afile:
                 req = requests.post("%s/upload_package/%s" % (self.wapt_server,os.path.basename(file)),data=afile,proxies=self.proxies,verify=False,auth=auth)
                 req.raise_for_status()
-          return req.content
+                res = json.loads(req.content)
+                if res['status'] != 'OK':
+                    raise Exception(u'Unable to upload package: %s'%ensure_unicode(res['message']))
+          return res
 
     def check_install_running(self,max_ttl=60):
         """ Check if an install is in progress, return list of pids of install in progress
@@ -3400,12 +3421,13 @@ class Wapt(object):
         """
         self.runstatus='Upgrade system'
         try:
-            host_package = self.check_host_package_outdated()
-            if host_package:
-                logger.info('Host package %s is available and not installed, installing host package...' % (host_package.package,) )
-                hostresult = self.install(host_package,force=True)
-            else:
-                hostresult = []
+            if self.use_hostpackages:
+                host_package = self.check_host_package_outdated()
+                if host_package:
+                    logger.info('Host package %s is available and not installed, installing host package...' % (host_package.package,) )
+                    hostresult = self.install(host_package,force=True)
+                else:
+                    hostresult = []
 
             upgrades = self.waptdb.upgradeable()
             logger.debug(u'upgrades : %s' % upgrades.keys())
@@ -3424,9 +3446,10 @@ class Wapt(object):
         result = []
         # only most up to date (first one in list)
         result.extend([p[0] for p in self.waptdb.upgradeable().values() if p])
-        host_package = self.check_host_package_outdated()
-        if host_package and not host_package in result:
-            result.append(host_package)
+        if self.use_hostpackages:
+            host_package = self.check_host_package_outdated()
+            if host_package and not host_package in result:
+                result.append(host_package)
         return result
 
     def search(self,searchwords=[],exclude_host_repo=True,section_filter=None):
@@ -4386,7 +4409,8 @@ class Wapt(object):
         >>> import shutil
         >>> shutil.rmtree(tmpdir)
         >>> host = wapt.edit_host('htlaptop.tranquilit.local',target_directory=tmpdir,append_depends='tis-firefox')
-        ???
+        >>> 'package' in host
+        True
         >>> shutil.rmtree(tmpdir)
         """
         # target_directory is not provided, calc default one

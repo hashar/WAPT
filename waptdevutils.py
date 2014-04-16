@@ -20,7 +20,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__ = "0.8.26"
+__version__ = "0.8.27"
 
 import common
 import json
@@ -29,11 +29,12 @@ from waptpackage import *
 import active_directory
 import codecs
 from iniparse import RawConfigParser
-
+import getpass
 
 create_self_signed_key = common.create_self_signed_key
 is_encrypt_private_key = common.private_key_has_password
 is_match_password = common.check_key_password
+import tempfile
 
 
 def create_wapt_setup(wapt,default_public_cert='',default_repo_url='',default_wapt_server='',destination='',company=''):
@@ -141,61 +142,76 @@ def update_tis_repo(waptconfigfile,search_string):
 
 
 def get_packages_filenames(waptconfigfile,packages_names):
-    """Returns list of package filenames (latest version) matching comma seperated list of packages names)
-    >>> get_packages_filenames(r"c:\users\htouvet\AppData\Local\waptconsole\waptconsole.ini","tis-firefox-esr,tis-flash")
-    [u'tis-firefox-esr_24.4.0-0_all.wapt', u'tis-flash_12.0.0.77-3_all.wapt']
+    """Returns list of package filenames (latest version) matching comma seperated list of packages names and their dependencies
+        helps to batch download a list of selected packages using tools like curl or wget
+    >>> get_packages_filenames(r"c:\users\htouvet\AppData\Local\waptconsole\waptconsole.ini","tis-firefox-esr,tis-flash,tis-wapttest")
+    [u'tis-firefox-esr_24.4.0-0_all.wapt', u'tis-flash_12.0.0.77-3_all.wapt', u'tis-wapttest.wapt', u'tis-wapttestsub_0.1.0-1_all.wapt', u'tis-7zip_9.2.0-15_all.wapt']
     """
     result = []
     wapt = common.Wapt(config_filename=waptconfigfile,disable_update_server_status=True)
+    # force to use alternate templates repo
     repo = wapt.config.get('global','templates_repo_url')
     wapt.repositories[0].repo_url = repo if repo else 'http://wapt.tranquil.it/wapt'
     wapt.proxies =  {'http':wapt.config.get('global','http_proxy')}
     wapt.dbpath = r':memory:'
+    # be sure to be up to date
     wapt.update(register=False)
     for name in packages_names.split(','):
         entries = wapt.is_available(name)
         if entries:
-            result.append(entries[-1].filename)
+            pe = entries[-1]
+            result.append(pe.filename)
+            if pe.depends:
+                for fn in get_packages_filenames(waptconfigfile,pe.depends):
+                    if not fn in result:
+                        result.append(fn)
     return result
 
 
-def duplicate_from_tis_repo(waptconfigfile,file_name,depends=[]):
-    """Duplicate a package from  to supplied wapt repository
-    ;>>> duplicate_from_tis_repo(r'C:\Users\htouvet\AppData\Local\waptconsole\waptconsole.ini','tis-firefox')
+def duplicate_from_external_repo(waptconfigfile,package_filename):
+    r"""Duplicate a downloaded package to match prefix defined in waptconfigfile
+       renames all dependencies
+      returns source directory
+    >>> from common import Wapt
+    >>> wapt = Wapt(config_filename = r'C:\Users\htouvet\AppData\Local\waptconsole\waptconsole.ini')
+    >>> sources = duplicate_from_external_repo(wapt.config_filename,r'C:\tranquilit\wapt\tests\packages\tis-wapttest.wapt')
+    >>> res = wapt.build_upload(sources,wapt_server_user='admin',wapt_server_passwd='password')
+    >>> res[0]['package'].depends
+    u'test-wapttestsub,test-7zip'
     """
-    import tempfile
     wapt = common.Wapt(config_filename=waptconfigfile,disable_update_server_status=True)
-    prefix = wapt.config.get('global','default_package_prefix')
-    wapt.proxies =  {'http':wapt.config.get('global','http_proxy')}
-    if not prefix:
-        prefix = "tis"
-    old_file_name = PackageEntry().load_control_from_wapt(file_name).package
-    new_file_name ="%s-%s" % (prefix, old_file_name.split('-',1)[-1])
-    wapt.config.set('global','default_sources_root',tempfile.mkdtemp())
+    wapt.use_hostpackages = False
 
-    result = wapt.duplicate_package(file_name,new_file_name,build=False,auto_inc_version=False)
-    print result
-    source_dir = []
-    new_depends = []
-    if 'source_dir' in result:
-        package =  result['package']
-        source_dir.append(result['source_dir'])
-        if package.depends:
-            for depend in depends:
-                old_file_name = PackageEntry().load_control_from_wapt(depend).package
-                new_file_name ="%s-%s" % (prefix, old_file_name.split('-',1)[-1])
-                new_depends.append(new_file_name)
-                result = wapt.duplicate_package(depend,new_file_name,build=False,auto_inc_version=False)
-                source_dir.append(result['source_dir'])
+    prefix = wapt.config.get('global','default_package_prefix','tis')
 
-        if new_depends:
-            package.depends = ','.join(new_depends)
-            package.save_control_to_wapt(source_dir[0])
+    def rename_package(oldname,prefix):
+        sp = oldname.split('-',1)
+        if len(sp) == 2:
+            return "%s-%s" % (prefix,sp[-1])
+        else:
+            return oldname
 
-    return source_dir
+    oldname = PackageEntry().load_control_from_wapt(package_filename).package
+    newname = rename_package(oldname,prefix)
 
+    res = wapt.duplicate_package(oldname,newname,build=False,auto_inc_version=True)
+    result = res['source_dir']
+
+    # renames dependencies
+    package =  res['package']
+    if package.depends:
+        newdepends = []
+        depends = [s.strip() for s in package.depends.split(',')]
+        for dependname in depends:
+            newname = rename_package(dependname,prefix)
+            newdepends.append(newname)
+
+        package.depends = ','.join(newdepends)
+        package.save_control_to_wapt(result)
+    return result
 
 def wapt_sources_edit(wapt_sources_dir):
+    """Launch pyscripter if installed, else explorer on supplied wapt sources dir"""
     psproj_filename = os.path.join(wapt_sources_dir,'WAPT','wapt.psproj')
     control_filename = os.path.join(wapt_sources_dir,'WAPT','control')
     setup_filename = os.path.join(wapt_sources_dir,'setup.py')
@@ -217,6 +233,47 @@ def login_to_waptserver(url, login, passwd,newPass=""):
         return resp.text
     except Exception as e:
         return unicode(str(e.message), 'ISO-8859-1')
+
+def edit_hosts_depends(waptconfigfile,hosts_list,appends=[],removes=[],key_password=None,wapt_server_user=None,wapt_server_passwd=None):
+    """Add or remove packages from host packages
+    >>> edit_hosts_depends('c:/wapt/wapt-get.ini','htlaptop.tranquilit.local','toto','tis-7zip','admin','password')
+    """
+    if not wapt_server_user:
+        wapt_server_user = raw_input('WAPT Server user :')
+    if not wapt_server_passwd:
+        wapt_server_passwd = getpass.getpass('WAPT Server password :').encode('ascii')
+
+    wapt = common.Wapt(config_filename=waptconfigfile,disable_update_server_status=True)
+    if not isinstance(hosts_list,list):
+        hosts_list = [s.strip() for s in hosts_list.split(',')]
+    if not isinstance(appends,list):
+        appends = [s.strip() for s in appends.split(',')]
+    if not isinstance(removes,list):
+        removes = [s.strip() for s in removes.split(',')]
+    result = []
+    sources = []
+    build_res = []
+    try:
+        for host in hosts_list:
+            logger.debug(u'Edit host %s : +%s -%s'%(host,appends,removes))
+            target_dir = tempfile.mkdtemp('wapt')
+            edit_res = wapt.edit_host(host,
+                use_local_sources = False,
+                target_directory = target_dir,
+                append_depends = appends,
+                remove_depends = removes,)
+            sources.append(edit_res)
+        logger.debug(u'Build upload %s'%[r['source_dir'] for r in sources])
+        build_res = wapt.build_upload([r['source_dir'] for r in sources],private_key_passwd = key_password,wapt_server_user=wapt_server_user,wapt_server_passwd=wapt_server_passwd)
+    finally:
+        logger.debug('Cleanup')
+        for s in sources:
+            if os.path.isdir(s['source_dir']):
+                shutil.rmtree(s['source_dir'])
+        for s in build_res:
+            if os.path.isfile(s['filename']):
+                os.unlink(s['filename'])
+    return build_res
 
 if __name__ == '__main__':
     import doctest

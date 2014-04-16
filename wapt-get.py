@@ -20,7 +20,7 @@
 #    along with WAPT.  If not, see <http://www.gnu.org/licenses/>.
 #
 # -----------------------------------------------------------------------
-__version__ = "0.8.23"
+__version__ = "0.8.27"
 import sys
 import os
 import logging
@@ -290,11 +290,14 @@ def main():
                     if action != 'download':
                         for k in ('install','additional','upgrade','skipped','errors'):
                             if result.get(k,[]):
-                                print u"\n=== %s packages ===\n%s" % (k,'\n'.join( ["  %-30s | %s (%s)" % (s[0],s[1].package,s[1].version) for s in  result[k]]),)
+                                print(u"\n === %s packages ===\n%s" % (k,'\n'.join( ["  %-30s | %s (%s)" % (s[0],s[1].package,s[1].version) for s in  result[k]]),))
                     else:
                         for k in ('downloaded','skipped','errors'):
                             if result.get('downloads', {'downloaded':[],'skipped':[],'errors':[]} )[k]:
                                 print u"\n=== %s packages ===\n%s" % (k,'\n'.join(["  %s" % (s,) for s in result['downloads'][k]]),)
+                    if result['unavailable']:
+                        print(u'Critical : ')
+                        print(u' === Unavailable packages ===\n%s'% '\n'.join( ["  %-30s" % s for s in  result['unavailable']]) )
                 if mywapt.wapt_server:
                     try:
                         mywapt.update_server_status()
@@ -682,7 +685,8 @@ def main():
                             # add quotes for command line
                             files_list = ['"%s"' % f for f in package_group[1]]
                             cmd_dict =  {'waptfile': files_list,'waptdir':package_group[0]}
-                            print mywapt.upload_package(cmd_dict)
+                            res = mywapt.upload_package(cmd_dict)
+                            print('Status : %s, %s'%(res['status'],res['message']))
 
                             if package_group != hosts:
                                 if mywapt.after_upload:
@@ -750,7 +754,7 @@ def main():
                     print ppdicttable(result,(('status',10),('package',30),('version',10),('description',80),('repo',10)))
 
             elif action in ('clean','cleanup'):
-                result = mywapt.cleanup()
+                result = mywapt.cleanup(obsolete_only=not options.force)
                 if options.json_output:
                     jsonresult['result'] = result
                 else:
